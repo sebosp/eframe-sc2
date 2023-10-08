@@ -3,15 +3,13 @@
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> eframe::Result<()> {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-
-    let native_options = eframe::NativeOptions::default();
-    eframe::run_native(
-        "eframe template",
-        native_options,
-        Box::new(|cc| Box::new(eframe_template::TemplateApp::new(cc))),
-    )
+#[tokio::main]
+async fn main() {
+    // This will start the web server.
+    // Then we can start the GUI to interact with it.
+    // The web server will eventually serve also the wasm to interact
+    // with the server as well.
+    eframe_sc2::cli::process_cli_request().await.unwrap();
 }
 
 // When compiling to web using trunk:
@@ -27,7 +25,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(eframe_template::TemplateApp::new(cc))),
+                Box::new(|cc| Box::new(eframe_sc2::SC2ReplayAnalyser::new(cc))),
             )
             .await
             .expect("failed to start eframe");
