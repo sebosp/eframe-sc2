@@ -1,11 +1,23 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
-mod app;
+pub mod app;
 pub use app::SC2ReplayAnalyser;
-pub mod api;
-pub mod cli;
 pub mod common;
-pub mod error;
-pub mod server;
 pub use common::*;
+pub mod details;
+pub use details::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod api;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod cli;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod error;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub use error::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod server;

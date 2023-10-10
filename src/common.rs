@@ -1,7 +1,9 @@
 //! Common operations
 //!
 
+#[cfg(not(target_arch = "wasm32"))]
 use polars::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
 /// Contains the meta data of data frame results to be sent back to the clients.
@@ -17,6 +19,8 @@ pub struct ResponseMeta {
     pub message: String,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+/// Converts a Dataframe into a String, this is expensive but useful for small results.
 pub fn convert_df_to_json_data(df: &DataFrame) -> Result<String, crate::error::Error> {
     let mut buf = Vec::new();
     JsonWriter::new(&mut buf)
