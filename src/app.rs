@@ -18,6 +18,10 @@ pub struct SC2ReplayAnalyser {
 
     picked_path: Option<String>,
 
+    /// Contains the metadata related to the backend snapshot.c
+    #[serde(skip)]
+    backend_meta: Option<poll_promise::Promise<SnapshotMeta>>,
+
     #[serde(skip)]
     file_request_future: Option<poll_promise::Promise<Option<Vec<u8>>>>,
 
@@ -41,6 +45,7 @@ impl Default for SC2ReplayAnalyser {
             file_request_future: None,
             replay_details: None,
             replay_details_status_color: egui::Color32::GREEN,
+            backend_meta: Default::default(),
         }
     }
 }
@@ -57,6 +62,7 @@ impl SC2ReplayAnalyser {
         Default::default()
     }
 
+    /// Loads a file Using rfd file open dialog
     async fn load_file() -> Option<Vec<u8>> {
         let res = rfd::AsyncFileDialog::new().pick_file().await;
 
@@ -64,6 +70,14 @@ impl SC2ReplayAnalyser {
             Some(file) => Some(file.read().await),
             None => None,
         }
+    }
+
+    async fn load_meta() -> BackendMeta {
+        let res = rfd::AsyncFileDialog::new().pick_file().await;
+        let request = ehttp::Request::get("http://corvid:3000/api/v1/maps");
+        ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
+            println!("Status code: {:?}", result.unwrap().status);
+        });
     }
 }
 
@@ -113,6 +127,17 @@ impl eframe::App for SC2ReplayAnalyser {
                 {
                     self.file_request_future =
                         Some(poll_promise::Promise::spawn_async(Self::load_file()));
+                }
+            }
+
+            if ui.button("Load Backend Stats").clicked() {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    self.backend_meta = Some(poll_promise::Promise::spawn_local(Self::load_file()));
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    self.backend_meta = Some(poll_promise::Promise::spawn_async(Self::load_file()));
                 }
             }
 

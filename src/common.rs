@@ -19,6 +19,34 @@ pub struct ResponseMeta {
     pub message: String,
 }
 
+/// Contains information related to the minimun, maximum date of the snapshot taken, the number of
+/// files analyzed, the number of maps and the number of players.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BackendMeta {
+    /// The minimum date of the snapshot taken
+    pub min_date: chrono::NaiveDateTime,
+    /// The maximum date of the snapshot taken
+    pub max_date: chrono::NaiveDateTime,
+    /// The number of files analyzed
+    pub num_files: usize,
+    /// The number of maps
+    pub num_maps: usize,
+    /// The number of players
+    pub num_players: usize,
+}
+
+impl Default for BackendMeta {
+    fn default() -> Self {
+        Self {
+            min_date: chrono::NaiveDateTime::from_timestamp(0, 0),
+            max_date: chrono::NaiveDateTime::from_timestamp(0, 0),
+            num_files: 0,
+            num_maps: 0,
+            num_players: 0,
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 /// Converts a Dataframe into a String, this is expensive but useful for small results.
 pub fn convert_df_to_json_data(df: &DataFrame) -> Result<String, crate::error::Error> {
