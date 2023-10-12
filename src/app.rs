@@ -1,5 +1,6 @@
 //! Main app
 
+use crate::BackendMeta;
 use eframe::egui;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -20,7 +21,7 @@ pub struct SC2ReplayAnalyser {
 
     /// Contains the metadata related to the backend snapshot.c
     #[serde(skip)]
-    backend_meta: Option<poll_promise::Promise<SnapshotMeta>>,
+    backend_meta: Option<poll_promise::Promise<BackendMeta>>,
 
     #[serde(skip)]
     file_request_future: Option<poll_promise::Promise<Option<Vec<u8>>>>,
@@ -73,11 +74,11 @@ impl SC2ReplayAnalyser {
     }
 
     async fn load_meta() -> BackendMeta {
-        let res = rfd::AsyncFileDialog::new().pick_file().await;
         let request = ehttp::Request::get("http://corvid:3000/api/v1/maps");
-        ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
-            println!("Status code: {:?}", result.unwrap().status);
-        });
+        ehttp::fetch_async(request)
+            .await
+            .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
+            .unwrap_or_default()
     }
 }
 
@@ -133,11 +134,11 @@ impl eframe::App for SC2ReplayAnalyser {
             if ui.button("Load Backend Stats").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {
-                    self.backend_meta = Some(poll_promise::Promise::spawn_local(Self::load_file()));
+                    self.backend_meta = Some(poll_promise::Promise::spawn_local(Self::load_meta()));
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    self.backend_meta = Some(poll_promise::Promise::spawn_async(Self::load_file()));
+                    self.backend_meta = Some(poll_promise::Promise::spawn_async(Self::load_meta()));
                 }
             }
 

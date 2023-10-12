@@ -38,8 +38,8 @@ pub struct BackendMeta {
 impl Default for BackendMeta {
     fn default() -> Self {
         Self {
-            min_date: chrono::NaiveDateTime::from_timestamp(0, 0),
-            max_date: chrono::NaiveDateTime::from_timestamp(0, 0),
+            min_date: Default::default(),
+            max_date: Default::default(),
             num_files: 0,
             num_maps: 0,
             num_players: 0,
