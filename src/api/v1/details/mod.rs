@@ -5,14 +5,13 @@ use crate::details::*;
 use crate::server::AppState;
 use axum::{extract::Query, extract::State, http::StatusCode, Json};
 use polars::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// Filters the available maps based on the query parameters
-pub async fn route_query_maps(
+pub async fn axum_route_query_maps(
     req: Query<ListReplayReq>,
     state: State<Arc<AppState>>,
 ) -> (StatusCode, Json<ListReplayRes>) {
-    match get_map_freq(req, state).await {
+    match polars_get_map_freq(req, state).await {
         Ok(res) => (StatusCode::OK, Json(res)),
         Err(e) => {
             tracing::error!("Error: {}", e);
@@ -33,7 +32,7 @@ pub async fn route_query_maps(
 }
 
 /// Gets the list of maps from the details.ipc file
-pub async fn get_map_freq(
+pub async fn polars_get_map_freq(
     req: Query<ListReplayReq>,
     state: State<Arc<AppState>>,
 ) -> Result<ListReplayRes, crate::error::Error> {

@@ -74,7 +74,7 @@ impl SC2ReplayAnalyser {
     }
 
     async fn load_meta() -> BackendMeta {
-        let request = ehttp::Request::get("http://corvid:3000/api/v1/maps");
+        let request = ehttp::Request::get("/api/v1/maps");
         ehttp::fetch_async(request)
             .await
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
@@ -194,7 +194,7 @@ impl eframe::App for SC2ReplayAnalyser {
             });
 
             ui.add(egui::github_link_file!(
-                "https://github.com/sebosp/eframe_sc2/blob/master/",
+                "https://github.com/sebosp/eframe-sc2/blob/master/",
                 "Source code."
             ));
 

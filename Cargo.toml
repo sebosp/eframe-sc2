@@ -28,14 +28,17 @@ chrono = "0.4.31"
 env_logger = "0.10"
 poll-promise = { version = "0.3", features = ["tokio"] } 
 tokio = { version = "1", features = ["full"] }
-axum = "0.6.20"
-tracing-subscriber = "0.3.17"
+axum = { version = "0.6.20", features = ["ws"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"]}
 polars = { version = "0.33.2", features = ["docs-selection", "trigonometry", "lazy_regex", "strings"] }
 tracing = "0.1"
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1.0.164", features = ["derive"] }
 thiserror = "1.0.40"
 chrono = { version = "0.4.31", features = ["serde"] }
+tower = { version = "0.4.13", features = ["full"] }
+tower-http = { version = "0.4.4", features = ["fs", "trace"] }
+hyper = { version = "0.14.27", features = ["full"] }
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]

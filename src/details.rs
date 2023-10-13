@@ -10,18 +10,18 @@ pub const DETAILS_IPC: &str = "details.ipc";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListReplayReq {
     /// The title of the map
-    title: Option<String>,
+    pub title: Option<String>,
     /// A player that must have played in the game
-    player: Option<String>,
+    pub player: Option<String>,
 }
 
 /// Basic query response available for filtering  replay maps
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListReplayRes {
     /// Metadata of the response
-    meta: ResponseMeta,
+    pub meta: ResponseMeta,
     /// The data of the response
-    data: Vec<MapFrequency>,
+    pub data: Vec<MapFrequency>,
 }
 
 /// Basic response for map frequency

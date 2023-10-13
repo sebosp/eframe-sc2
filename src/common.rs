@@ -21,7 +21,7 @@ pub struct ResponseMeta {
 
 /// Contains information related to the minimun, maximum date of the snapshot taken, the number of
 /// files analyzed, the number of maps and the number of players.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BackendMeta {
     /// The minimum date of the snapshot taken
     pub min_date: chrono::NaiveDateTime,
@@ -33,18 +33,6 @@ pub struct BackendMeta {
     pub num_maps: usize,
     /// The number of players
     pub num_players: usize,
-}
-
-impl Default for BackendMeta {
-    fn default() -> Self {
-        Self {
-            min_date: Default::default(),
-            max_date: Default::default(),
-            num_files: 0,
-            num_maps: 0,
-            num_players: 0,
-        }
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
