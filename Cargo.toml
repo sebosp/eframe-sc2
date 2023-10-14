@@ -16,6 +16,8 @@ eframe = { version = "0.23.0", default-features = false, features = [
 log = "0.4"
 s2protocol = { version = "3.0.2", features = ["arrow"]}
 rfd = "0.12"
+egui_plot = "0.23.0"
+egui_extras = "0.23.0"
 
 # You only need serde if you want app persistence:
 serde = { version = "1", features = ["derive"] }

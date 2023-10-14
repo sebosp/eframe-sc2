@@ -1,6 +1,7 @@
 //! Main app
 
-use crate::BackendMeta;
+use crate::details::ListDetailsMapFreqRes;
+use crate::AnalyzedSnapshotMeta;
 use eframe::egui;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -19,9 +20,13 @@ pub struct SC2ReplayAnalyser {
 
     picked_path: Option<String>,
 
-    /// Contains the metadata related to the backend snapshot.c
+    /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
-    backend_meta: Option<poll_promise::Promise<BackendMeta>>,
+    analyzed_snapshot_meta: Option<poll_promise::Promise<AnalyzedSnapshotMeta>>,
+
+    /// Contains the metadata related to the backend snapshot.
+    #[serde(skip)]
+    list_details_map_freq: Option<poll_promise::Promise<ListDetailsMapFreqRes>>,
 
     #[serde(skip)]
     file_request_future: Option<poll_promise::Promise<Option<Vec<u8>>>>,
@@ -43,10 +48,11 @@ impl Default for SC2ReplayAnalyser {
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
+            analyzed_snapshot_meta: Default::default(),
+            list_details_map_freq: None,
             file_request_future: None,
             replay_details: None,
             replay_details_status_color: egui::Color32::GREEN,
-            backend_meta: Default::default(),
         }
     }
 }
@@ -73,7 +79,16 @@ impl SC2ReplayAnalyser {
         }
     }
 
-    async fn load_meta() -> BackendMeta {
+    /// Loads basic information about the analyzed metadata
+    async fn load_analyzed_snapshot_meta() -> AnalyzedSnapshotMeta {
+        let request = ehttp::Request::get("/api/v1/analyzed_snapshot_meta");
+        ehttp::fetch_async(request)
+            .await
+            .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
+            .unwrap_or_default()
+    }
+
+    async fn load_details_map_frequency() -> ListDetailsMapFreqRes {
         let request = ehttp::Request::get("/api/v1/maps");
         ehttp::fetch_async(request)
             .await
@@ -98,7 +113,6 @@ impl eframe::App for SC2ReplayAnalyser {
 
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.button("Process Directory").clicked() {}
                     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     {
                         if ui.button("Quit").clicked() {
@@ -134,29 +148,42 @@ impl eframe::App for SC2ReplayAnalyser {
             if ui.button("Load Backend Stats").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {
-                    self.backend_meta = Some(poll_promise::Promise::spawn_local(Self::load_meta()));
+                    self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_local(
+                        Self::load_analyzed_snapshot_meta(),
+                    ));
+                    self.list_details_map_freq = Some(poll_promise::Promise::spawn_local(
+                        Self::load_details_map_frequency(),
+                    ));
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    self.backend_meta = Some(poll_promise::Promise::spawn_async(Self::load_meta()));
+                    self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_async(
+                        Self::load_analyzed_snapshot_meta(),
+                    ));
+                    self.list_details_map_freq = Some(poll_promise::Promise::spawn_async(
+                        Self::load_details_map_frequency(),
+                    ));
+                }
+            }
+            if let Some(list_details_map_freq) = &self.list_details_map_freq {
+                if let Some(list_details_map_freq) = list_details_map_freq.ready() {
+                    crate::api::v1::details::table_ui(ui, &list_details_map_freq.data);
                 }
             }
 
             if let Some(file_async) = &self.file_request_future {
-                if let Some(file_result) = file_async.ready() {
-                    if let Some(file_contents) = file_result {
-                        self.replay_details = match s2protocol::parser::parse(file_contents) {
-                            Ok((_input, mpq)) => {
-                                self.replay_details_status_color = egui::Color32::GREEN;
-                                s2protocol::details::Details::new("TEST", &mpq, file_contents).ok()
-                            }
-                            Err(e) => {
-                                println!("Error parsing replay: {}", e);
-                                self.replay_details_status_color = egui::Color32::RED;
-                                None
-                            }
-                        };
-                    }
+                if let Some(Some(file_contents)) = file_async.ready() {
+                    self.replay_details = match s2protocol::parser::parse(file_contents) {
+                        Ok((_input, mpq)) => {
+                            self.replay_details_status_color = egui::Color32::GREEN;
+                            s2protocol::details::Details::new("TEST", &mpq, file_contents).ok()
+                        }
+                        Err(e) => {
+                            println!("Error parsing replay: {}", e);
+                            self.replay_details_status_color = egui::Color32::RED;
+                            None
+                        }
+                    };
                 }
             }
 

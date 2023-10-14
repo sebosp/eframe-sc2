@@ -6,8 +6,6 @@ pub mod common;
 pub use common::*;
 pub mod details;
 pub use details::*;
-
-#[cfg(not(target_arch = "wasm32"))]
 pub mod api;
 
 #[cfg(not(target_arch = "wasm32"))]

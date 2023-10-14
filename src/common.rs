@@ -7,7 +7,7 @@ use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Contains the meta data of data frame results to be sent back to the clients.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ResponseMeta {
     /// Wether there was an error or not
     pub status: String,
@@ -19,10 +19,10 @@ pub struct ResponseMeta {
     pub message: String,
 }
 
-/// Contains information related to the minimun, maximum date of the snapshot taken, the number of
-/// files analyzed, the number of maps and the number of players.
+/// Contains metadata information related to the minimun, maximum date of the snapshot taken, the number of
+/// files analyzed, the number of maps and the number of players in the analyzed collection
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct BackendMeta {
+pub struct AnalyzedSnapshotMeta {
     /// The minimum date of the snapshot taken
     pub min_date: chrono::NaiveDateTime,
     /// The maximum date of the snapshot taken
