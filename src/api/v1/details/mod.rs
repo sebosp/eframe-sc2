@@ -100,9 +100,7 @@ pub async fn polars_get_map_freq(
 pub fn table_ui(ui: &mut Ui, maps: &[MapFrequency]) {
     use egui_extras::{Column, TableBuilder};
 
-    let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-
-    let mut table = TableBuilder::new(ui)
+    let table = TableBuilder::new(ui)
         .striped(true)
         .resizable(true)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
@@ -132,17 +130,25 @@ pub fn table_ui(ui: &mut Ui, maps: &[MapFrequency]) {
             });
         })
         .body(|mut body| {
+            let max_games_on_map = maps.iter().map(|x| x.count).max().unwrap_or(0);
             for (idx, map) in maps.iter().enumerate() {
                 let row_height = 18.0;
                 body.row(row_height, |mut row| {
+                    let map_ratio = map.count as f32 / max_games_on_map as f32;
                     row.col(|ui| {
                         ui.label(idx.to_string());
                     });
                     row.col(|ui| {
-                        ui.label("TODO: freq bar");
+                        // Create a bar that has the size of the total games divided by the current map count
+                        let bar =
+                            egui::ProgressBar::new(map_ratio).desired_width(ui.available_width());
+                        ui.add(bar);
                     });
                     row.col(|ui| {
                         ui.label(map.title.clone());
+                    });
+                    row.col(|ui| {
+                        ui.label(map.count.to_string());
                     });
                     row.col(|ui| {
                         ui.label("TODO: map activity");
