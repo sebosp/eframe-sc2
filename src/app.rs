@@ -11,6 +11,9 @@ pub struct SC2ReplayAnalyser {
     /// A filter expression.
     filter: String,
 
+    /// A filter expression.
+    map_filter: String,
+
     /// A filter in the future
     #[serde(skip)]
     value: f32,
@@ -45,6 +48,7 @@ impl Default for SC2ReplayAnalyser {
         Self {
             // Example stuff:
             filter: "".to_owned(),
+            map_filter: "".to_owned(),
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
@@ -88,8 +92,14 @@ impl SC2ReplayAnalyser {
             .unwrap_or_default()
     }
 
-    async fn load_details_map_frequency() -> ListDetailsMapFreqRes {
-        let request = ehttp::Request::get("/api/v1/maps");
+    async fn load_details_map_frequency(map_filter: &str) -> ListDetailsMapFreqRes {
+        let request = match map_filter {
+            "" => ehttp::Request::get("/api/v1/details/map_frequency"),
+            _ => ehttp::Request::get(format!(
+                "/api/v1/details/map_frequency?title={}",
+                map_filter
+            )),
+        };
         ehttp::fetch_async(request)
             .await
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
@@ -113,6 +123,9 @@ impl eframe::App for SC2ReplayAnalyser {
 
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    if ui.button("About").clicked() {
+                        // TODO: open a modal window with the about info
+                    }
                     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     {
                         if ui.button("Quit").clicked() {
@@ -152,7 +165,7 @@ impl eframe::App for SC2ReplayAnalyser {
                         Self::load_analyzed_snapshot_meta(),
                     ));
                     self.list_details_map_freq = Some(poll_promise::Promise::spawn_local(
-                        Self::load_details_map_frequency(),
+                        Self::load_details_map_frequency(&self.map_filter),
                     ));
                 }
                 #[cfg(not(target_arch = "wasm32"))]
@@ -161,10 +174,14 @@ impl eframe::App for SC2ReplayAnalyser {
                         Self::load_analyzed_snapshot_meta(),
                     ));
                     self.list_details_map_freq = Some(poll_promise::Promise::spawn_async(
-                        Self::load_details_map_frequency(),
+                        Self::load_details_map_frequency(&self.map_filter),
                     ));
                 }
             }
+            ui.horizontal(|ui| {
+                ui.label("Filter Maps: ");
+                ui.text_edit_singleline(&mut self.map_filter);
+            });
             if let Some(list_details_map_freq) = &self.list_details_map_freq {
                 if let Some(list_details_map_freq) = list_details_map_freq.ready() {
                     crate::api::v1::details::table_ui(ui, &list_details_map_freq.data);
