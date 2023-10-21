@@ -37,13 +37,12 @@ pub async fn start_server(cli: &crate::cli::Cli) {
                     .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
                     .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
             )
-            .route(
-                "/api/v1/maps",
-                get(crate::api::v1::details::axum_route_query_maps),
+            .nest(
+                "/api",
+                crate::api::routes(axum::extract::State(shared_state.clone())),
             )
             .route("/_trunk/ws", get(web_socket_handler))
-            .nest_service("/", get(static_dir_handler))
-            .with_state(shared_state);
+            .nest_service("/", get(static_dir_handler));
 
         let proxy_service = tower::service_fn(move |req: Request<Body>| {
             let router_svc = router_svc.clone();

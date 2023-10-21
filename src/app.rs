@@ -1,13 +1,14 @@
 //! Main app
 
-use crate::details::ListDetailsMapFreqRes;
-use crate::AnalyzedSnapshotMeta;
+use crate::api::v1::details::map_frequency::ui::table_div;
+use crate::api::v1::details::map_frequency::ListDetailsMapFreqRes;
+use crate::meta::AnalyzedSnapshotMeta;
 use eframe::egui;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct SC2ReplayAnalyser {
+pub struct SC2ReplayExplorer {
     /// A filter expression.
     filter: String,
 
@@ -43,7 +44,7 @@ pub struct SC2ReplayAnalyser {
     replay_details_status_color: egui::Color32,
 }
 
-impl Default for SC2ReplayAnalyser {
+impl Default for SC2ReplayExplorer {
     fn default() -> Self {
         Self {
             // Example stuff:
@@ -61,7 +62,7 @@ impl Default for SC2ReplayAnalyser {
     }
 }
 
-impl SC2ReplayAnalyser {
+impl SC2ReplayExplorer {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // Load previous app state (if any).
@@ -92,8 +93,8 @@ impl SC2ReplayAnalyser {
             .unwrap_or_default()
     }
 
-    async fn load_details_map_frequency(map_filter: &str) -> ListDetailsMapFreqRes {
-        let request = match map_filter {
+    async fn load_details_map_frequency(map_filter: String) -> ListDetailsMapFreqRes {
+        let request = match map_filter.as_ref() {
             "" => ehttp::Request::get("/api/v1/details/map_frequency"),
             _ => ehttp::Request::get(format!(
                 "/api/v1/details/map_frequency?title={}",
@@ -107,7 +108,7 @@ impl SC2ReplayAnalyser {
     }
 }
 
-impl eframe::App for SC2ReplayAnalyser {
+impl eframe::App for SC2ReplayExplorer {
     /// Called by the framework to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -165,7 +166,7 @@ impl eframe::App for SC2ReplayAnalyser {
                         Self::load_analyzed_snapshot_meta(),
                     ));
                     self.list_details_map_freq = Some(poll_promise::Promise::spawn_local(
-                        Self::load_details_map_frequency(&self.map_filter),
+                        Self::load_details_map_frequency(self.map_filter.clone()),
                     ));
                 }
                 #[cfg(not(target_arch = "wasm32"))]
@@ -174,7 +175,7 @@ impl eframe::App for SC2ReplayAnalyser {
                         Self::load_analyzed_snapshot_meta(),
                     ));
                     self.list_details_map_freq = Some(poll_promise::Promise::spawn_async(
-                        Self::load_details_map_frequency(&self.map_filter),
+                        Self::load_details_map_frequency(self.map_filter.clone()),
                     ));
                 }
             }
@@ -184,7 +185,7 @@ impl eframe::App for SC2ReplayAnalyser {
             });
             if let Some(list_details_map_freq) = &self.list_details_map_freq {
                 if let Some(list_details_map_freq) = list_details_map_freq.ready() {
-                    crate::api::v1::details::table_ui(ui, &list_details_map_freq.data);
+                    table_div(ui, &list_details_map_freq.data);
                 }
             }
 
