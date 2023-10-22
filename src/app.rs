@@ -1,7 +1,5 @@
 //! Main app
 
-use crate::api::v1::details::map_frequency::ui::table_div;
-use crate::api::v1::details::map_frequency::ListDetailsMapFreqRes;
 use crate::meta::AnalyzedSnapshotMeta;
 use eframe::egui;
 
@@ -9,11 +7,13 @@ use eframe::egui;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct SC2ReplayExplorer {
-    /// A filter expression.
-    filter: String,
+    /// Contains the metadata related to the backend snapshot.
+    #[serde(skip)]
+    analyzed_snapshot_meta: Option<poll_promise::Promise<AnalyzedSnapshotMeta>>,
 
-    /// A filter expression.
-    map_filter: String,
+    /// The Map selection UI
+    #[serde(skip)]
+    map_picker: crate::api::v1::details::map_frequency::SC2MapPicker,
 
     /// A filter in the future
     #[serde(skip)]
@@ -22,15 +22,8 @@ pub struct SC2ReplayExplorer {
     /// A list of files drag and dropped.
     dropped_files: Vec<egui::DroppedFile>,
 
+    /// The path of the picked file
     picked_path: Option<String>,
-
-    /// Contains the metadata related to the backend snapshot.
-    #[serde(skip)]
-    analyzed_snapshot_meta: Option<poll_promise::Promise<AnalyzedSnapshotMeta>>,
-
-    /// Contains the metadata related to the backend snapshot.
-    #[serde(skip)]
-    list_details_map_freq: Option<poll_promise::Promise<ListDetailsMapFreqRes>>,
 
     #[serde(skip)]
     file_request_future: Option<poll_promise::Promise<Option<Vec<u8>>>>,
@@ -47,14 +40,11 @@ pub struct SC2ReplayExplorer {
 impl Default for SC2ReplayExplorer {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            filter: "".to_owned(),
-            map_filter: "".to_owned(),
+            map_picker: Default::default(),
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
             analyzed_snapshot_meta: Default::default(),
-            list_details_map_freq: None,
             file_request_future: None,
             replay_details: None,
             replay_details_status_color: egui::Color32::GREEN,
@@ -92,20 +82,6 @@ impl SC2ReplayExplorer {
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
             .unwrap_or_default()
     }
-
-    async fn load_details_map_frequency(map_filter: String) -> ListDetailsMapFreqRes {
-        let request = match map_filter.as_ref() {
-            "" => ehttp::Request::get("/api/v1/details/map_frequency"),
-            _ => ehttp::Request::get(format!(
-                "/api/v1/details/map_frequency?title={}",
-                map_filter
-            )),
-        };
-        ehttp::fetch_async(request)
-            .await
-            .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
-            .unwrap_or_default()
-    }
 }
 
 impl eframe::App for SC2ReplayExplorer {
@@ -115,7 +91,7 @@ impl eframe::App for SC2ReplayExplorer {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
@@ -130,13 +106,46 @@ impl eframe::App for SC2ReplayExplorer {
                     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     {
                         if ui.button("Quit").clicked() {
-                            _frame.close();
+                            frame.close();
                         }
                     }
                 });
                 ui.add_space(16.0);
 
-                egui::widgets::global_dark_light_mode_buttons(ui);
+                ui.horizontal(|ui| {
+                    if ui.button("Reload Stats").clicked() {
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_local(
+                                Self::load_analyzed_snapshot_meta(),
+                            ));
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_async(
+                                Self::load_analyzed_snapshot_meta(),
+                            ));
+                        }
+                    }
+                    if let Some(analyzed_snapshot_meta) = &self.analyzed_snapshot_meta {
+                        if let Some(analyzed_snapshot_meta) = analyzed_snapshot_meta.ready() {
+                            // Crete a floating panel with the stats
+                            ui.label(format!("Total files: {}", analyzed_snapshot_meta.num_files));
+                            ui.label(format!("Total maps: {}", analyzed_snapshot_meta.num_maps));
+                            ui.label(format!("Min date: {:?}", analyzed_snapshot_meta.min_date));
+                            ui.label(format!("Max date: {:?}", analyzed_snapshot_meta.max_date));
+                            ui.label(format!(
+                                "Total players: {}",
+                                analyzed_snapshot_meta.num_players
+                            ));
+                        } else {
+                            ui.label("Loading snapshot metadata...");
+                        }
+                    } else {
+                        ui.label("N/A");
+                    }
+                });
+                //egui::widgets::global_dark_light_mode_buttons(ui);
             });
         });
 
@@ -144,7 +153,7 @@ impl eframe::App for SC2ReplayExplorer {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("SC2Replays Batch Analyser");
 
-            ui.label("Drag-and-drop files onto the window!");
+            ui.label("Drag-and-drop SC2Replay file onto the window!");
 
             if ui.button("Open file...").clicked() {
                 #[cfg(target_arch = "wasm32")]
@@ -159,35 +168,7 @@ impl eframe::App for SC2ReplayExplorer {
                 }
             }
 
-            if ui.button("Load Backend Stats").clicked() {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_local(
-                        Self::load_analyzed_snapshot_meta(),
-                    ));
-                    self.list_details_map_freq = Some(poll_promise::Promise::spawn_local(
-                        Self::load_details_map_frequency(self.map_filter.clone()),
-                    ));
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_async(
-                        Self::load_analyzed_snapshot_meta(),
-                    ));
-                    self.list_details_map_freq = Some(poll_promise::Promise::spawn_async(
-                        Self::load_details_map_frequency(self.map_filter.clone()),
-                    ));
-                }
-            }
-            ui.horizontal(|ui| {
-                ui.label("Filter Maps: ");
-                ui.text_edit_singleline(&mut self.map_filter);
-            });
-            if let Some(list_details_map_freq) = &self.list_details_map_freq {
-                if let Some(list_details_map_freq) = list_details_map_freq.ready() {
-                    table_div(ui, &list_details_map_freq.data);
-                }
-            }
+            self.map_picker.update(ctx, frame);
 
             if let Some(file_async) = &self.file_request_future {
                 if let Some(Some(file_contents)) = file_async.ready() {
@@ -221,11 +202,6 @@ impl eframe::App for SC2ReplayExplorer {
                     ui.monospace(picked_path);
                 });
             }
-
-            ui.horizontal(|ui| {
-                ui.label("Filter replays: ");
-                ui.text_edit_singleline(&mut self.filter);
-            });
 
             ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
             if ui.button("Increment").clicked() {

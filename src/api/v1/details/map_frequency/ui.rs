@@ -1,11 +1,11 @@
 //! Contains the UI for the map frequency table.
 
-use super::MapFrequency;
+use super::MapCount;
 use egui::Ui;
 use egui_extras::{Column, TableBuilder};
 
 /// Builds a portion of the UI to be used for the Maps table.
-pub fn table_div(ui: &mut Ui, maps: &[MapFrequency]) {
+pub fn table_div(ui: &mut Ui, maps: &[MapCount]) {
     ui.vertical(|ui| {
         ui.heading("Maps");
         ui.separator();
@@ -19,7 +19,7 @@ pub fn table_div(ui: &mut Ui, maps: &[MapFrequency]) {
 }
 
 /// Builds a table for egui with basic map information.
-pub fn table_inner(ui: &mut Ui, maps: &[MapFrequency]) {
+pub fn table_inner(ui: &mut Ui, maps: &[MapCount]) {
     let table = TableBuilder::new(ui)
         .striped(true)
         .resizable(true)

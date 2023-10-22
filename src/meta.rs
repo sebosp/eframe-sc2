@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Contains the meta data of data frame results to be sent back to the clients.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ResponseMeta {
     /// Wether there was an error or not
     pub status: String,
@@ -30,4 +30,3 @@ pub struct AnalyzedSnapshotMeta {
     /// The number of players
     pub num_players: usize,
 }
-
