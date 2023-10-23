@@ -13,7 +13,7 @@ pub struct SC2ReplayExplorer {
 
     /// The Map selection UI
     #[serde(skip)]
-    map_picker: crate::api::v1::details::map_frequency::SC2MapPicker,
+    map_picker: crate::api::v1::details::maps::SC2MapPicker,
 
     /// A filter in the future
     #[serde(skip)]

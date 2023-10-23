@@ -16,16 +16,22 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ListDetailsMapReq {
     /// The title of the map
+    #[serde(default)]
     pub title: String,
     /// A player that must have played in the game
+    #[serde(default)]
     pub player: String,
     /// Part of the file name
+    #[serde(default)]
     pub file_name: String,
     /// Part of the SHA256 hash
+    #[serde(default)]
     pub file_hash: String,
     /// Minimum bound of the file date
+    #[serde(default)]
     pub file_min_date: String,
     /// Max bound of the file date
+    #[serde(default)]
     pub file_max_date: String,
 }
 
@@ -57,6 +63,10 @@ pub struct SC2MapPicker {
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
     response: Option<poll_promise::Promise<ListDetailsMapRes>>,
+
+    /// Wether the map selection is open
+    #[serde(skip)]
+    is_open_map_selection: bool,
 }
 
 impl SC2MapPicker {
@@ -71,29 +81,13 @@ impl SC2MapPicker {
 
     async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
         let mut query_params: Vec<String> = vec![];
-        if !filters.title.is_empty() {
-            query_params.push(format!("title={}", encode(&filters.title)));
-        };
-        if !filters.player.is_empty() {
-            query_params.push(format!("player={}", encode(&filters.player)));
-        };
-        if !filters.file_name.is_empty() {
-            query_params.push(format!("file_name={}", encode(&filters.file_name)));
-        };
-        if !filters.file_hash.is_empty() {
-            query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
-        };
-        if !filters.file_min_date.is_empty() {
-            query_params.push(format!("file_min_date={}", encode(&filters.file_min_date)));
-        };
-        if !filters.file_max_date.is_empty() {
-            query_params.push(format!("file_max_date={}", encode(&filters.file_max_date)));
-        };
-        let mut query_url = "/api/v1/details/map_frequency".to_owned();
-        if !query_params.is_empty() {
-            query_url.push('?');
-            query_url.push_str(&query_params.join("&"));
-        }
+        query_params.push(format!("title={}", encode(&filters.title)));
+        query_params.push(format!("player={}", encode(&filters.player)));
+        query_params.push(format!("file_name={}", encode(&filters.file_name)));
+        query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
+        query_params.push(format!("file_min_date={}", encode(&filters.file_min_date)));
+        query_params.push(format!("file_max_date={}", encode(&filters.file_max_date)));
+        let query_url = format!("/api/v1/details/maps?{}", query_params.join("&"));
         ehttp::fetch_async(ehttp::Request::get(query_url))
             .await
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
@@ -125,20 +119,25 @@ impl eframe::App for SC2MapPicker {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if ui.button("Load Backend Stats").clicked() {
-                self.req_details_maps();
-            }
-            ui.horizontal(|ui| {
-                ui.label("Filters > ");
-                ui.label("Maps Title: ");
-                ui.text_edit_singleline(&mut self.request.title);
-            });
-            if let Some(response) = &self.response {
-                if let Some(response) = response.ready() {
-                    ui::table_div(ui, &response.data);
+        let mut open = self.is_open_map_selection;
+        egui::Window::new("Map Selection")
+            .default_width(480.0)
+            .default_height(320.0)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                if ui.button("Load Backend Stats").clicked() {
+                    self.req_details_maps();
                 }
-            }
-        });
+                ui.horizontal(|ui| {
+                    ui.label("Filters > ");
+                    ui.label("Maps Title: ");
+                    ui.text_edit_singleline(&mut self.request.title);
+                });
+                if let Some(response) = &self.response {
+                    if let Some(response) = response.ready() {
+                        ui::table_div(ui, &response.data);
+                    }
+                }
+            });
     }
 }

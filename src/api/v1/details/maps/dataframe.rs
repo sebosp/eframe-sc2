@@ -1,7 +1,6 @@
 //! Polars queries for the map frequency
 
-use super::{ListDetailsMapReq, ListDetailsMapRes};
-use crate::api::v1::details::map_frequency::MapCount;
+use super::{ListDetailsMapReq, ListDetailsMapRes, MapCount};
 use crate::server::AppState;
 use axum::{extract::Query, extract::State};
 use polars::prelude::*;
