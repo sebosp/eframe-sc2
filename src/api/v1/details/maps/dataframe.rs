@@ -2,15 +2,14 @@
 
 use super::{ListDetailsMapReq, ListDetailsMapRes, MapCount};
 use crate::server::AppState;
-use axum::{extract::Query, extract::State};
 use polars::prelude::*;
-use std::sync::Arc;
 
 /// Gets the list of maps from the details.ipc file
 pub async fn get_map_freq(
-    req: Query<ListDetailsMapReq>,
-    state: State<Arc<AppState>>,
+    req: ListDetailsMapReq,
+    state: AppState,
 ) -> Result<ListDetailsMapRes, crate::error::Error> {
+    let meta = crate::meta::ResponseMetaBuilder::new();
     let mut query = LazyFrame::scan_ipc(
         format!("{}/{}", state.source_dir, crate::DETAILS_IPC),
         Default::default(),
@@ -38,7 +37,11 @@ pub async fn get_map_freq(
     }
     let res = query
         .group_by([col("title")])
-        .agg([col("title").count().alias("count")])
+        .agg([
+            col("title").count().alias("count"),
+            col("ext_datetime").min().alias("min_date"),
+            col("ext_datetime").max().alias("max_date"),
+        ])
         .sort(
             "count",
             SortOptions {
@@ -48,16 +51,12 @@ pub async fn get_map_freq(
         )
         .limit(1000)
         .collect()?;
+    let num_maps = res.height();
     let data_str = crate::common::convert_df_to_json_data(&res)?;
     let data: Vec<MapCount> = serde_json::from_str(&data_str)?;
 
     Ok(ListDetailsMapRes {
-        meta: crate::meta::ResponseMeta {
-            status: "ok".to_string(),
-            total: data.len(),
-            snapshot_epoch: chrono::Utc::now().timestamp_millis() as u64,
-            message: "".to_string(),
-        },
+        meta: meta.build(),
         data,
     })
 }

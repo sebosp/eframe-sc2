@@ -1,23 +1,21 @@
-//! Axum route handlers
+//! Axum server module
 
-use super::{ListDetailsMapReq, ListDetailsMapRes};
+use super::SnapshotStats;
 use crate::meta::ResponseMeta;
 use crate::server::AppState;
 use axum::{extract::Query, extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 
-/// Filters the available maps based on the query parameters
-pub async fn route_query_maps(
-    req: Query<ListDetailsMapReq>,
+pub fn route_analyzed_snapshot_meta(
     state: State<Arc<AppState>>,
-) -> (StatusCode, Json<ListDetailsMapRes>) {
-    match super::dataframe::get_map_freq(req.into(), state.into()).await {
+) -> (StatusCode, Json<SnapshotStats>) {
+    match super::dataframe::get_metadata(state).await {
         Ok(res) => (StatusCode::OK, Json(res)),
         Err(e) => {
             tracing::error!("Error: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ListDetailsMapRes {
+                Json(AnalyzedSnapshotMeta {
                     meta: ResponseMeta {
                         status: "error".to_string(),
                         message: e.to_string(),

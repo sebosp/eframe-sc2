@@ -1,32 +1,105 @@
 //! Meta data response for http responses
 
+use std::time::Instant;
+
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
+
+/// The status of the response
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum ResponseStatus {
+    /// The response was successful
+    Ok,
+    /// There was an error
+    Error { message: String },
+}
 
 /// Contains the meta data of data frame results to be sent back to the clients.
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ResponseMeta {
     /// Wether there was an error or not
-    pub status: String,
+    pub status: ResponseStatus,
     /// The total number of rows in the data frame
     pub total: usize,
     /// The time at which the snapshot was taken
-    pub snapshot_epoch: u64,
-    /// A potential message in case of error. TODO: Refactor to Error specific type
-    pub message: String,
+    pub epoch: u64,
+    /// The drutation of the operation in milliseconds
+    pub duration: u64,
 }
 
-/// Contains metadata information related to the minimun, maximum date of the snapshot taken, the number of
-/// files analyzed, the number of maps and the number of players in the analyzed collection
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct AnalyzedSnapshotMeta {
-    /// The minimum date of the snapshot taken
-    pub min_date: chrono::NaiveDateTime,
-    /// The maximum date of the snapshot taken
-    pub max_date: chrono::NaiveDateTime,
-    /// The number of files analyzed
-    pub num_files: usize,
-    /// The number of maps
-    pub num_maps: usize,
-    /// The number of players
-    pub num_players: usize,
+impl ResponseMeta {
+    /// Creates a new ResponseMeta
+    pub fn new(
+        status: ResponseStatus,
+        total: usize,
+        epoch: u64,
+        message: String,
+        duration: u64,
+    ) -> Self {
+        Self {
+            status,
+            total,
+            epoch,
+            duration,
+        }
+    }
+
+    /// Creates a new ResponseMeta with status "ok"
+    pub fn ok(total: usize, epoch: u64, duration: u64) -> Self {
+        Self {
+            status: ResponseStatus::Ok,
+            total,
+            epoch,
+            duration,
+        }
+    }
+}
+
+pub struct ResponseMetaBuilder {
+    /// Wether there was an error or not
+    pub status: ResponseStatus,
+    /// The total number of rows in the data frame
+    pub total: usize,
+    /// The epoch at which the operation was performed
+    pub epoch: u64,
+    /// The drutation of the operation in milliseconds
+    pub start: Instant,
+}
+
+impl ResponseMetaBuilder {
+    /// Creates a new ResponseMetaBuilder
+    pub fn new() -> Self {
+        Self {
+            status: ResponseStatus::Ok,
+            total: 0,
+            epoch: chrono::Utc::now().timestamp_millis() as u64,
+            start: Instant::now(),
+        }
+    }
+
+    /// Sets the total number of rows in the data frame
+    pub fn with_total(mut self, total: usize) -> Self {
+        self.total = total;
+        self
+    }
+
+    /// Sets the total number of rows in the data frame
+    pub fn with_error(mut self, error: impl ToString) -> Self {
+        self.status = ResponseStatus::Error {
+            message: error.to_string(),
+        };
+        self
+    }
+
+    /// Builds the ResponseMeta
+    pub fn build(self) -> ResponseMeta {
+        let duration = self.start.elapsed().as_millis() as u64;
+        ResponseMeta {
+            status: self.status,
+            total: self.total,
+            epoch: self.epoch,
+            duration,
+        }
+    }
 }

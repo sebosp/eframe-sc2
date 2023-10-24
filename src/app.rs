@@ -99,7 +99,7 @@ impl eframe::App for SC2ReplayExplorer {
             // The top panel is often a good place for a menu bar:
 
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
+                ui.menu_button("Main", |ui| {
                     if ui.button("About").clicked() {
                         // TODO: open a modal window with the about info
                     }
@@ -155,6 +155,9 @@ impl eframe::App for SC2ReplayExplorer {
 
             ui.label("Drag-and-drop SC2Replay file onto the window!");
 
+            if ui.button("Open map selection").clicked() {
+                self.map_picker.is_open_map_selection = true;
+            }
             if ui.button("Open file...").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {

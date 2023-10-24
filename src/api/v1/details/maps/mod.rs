@@ -42,6 +42,16 @@ pub struct ListDetailsMapRes {
     pub meta: crate::meta::ResponseMeta,
     /// The data of the response
     pub data: Vec<MapCount>,
+    /// The minimum date of the snapshot taken
+    pub min_date: chrono::NaiveDateTime,
+    /// The maximum date of the snapshot taken
+    pub max_date: chrono::NaiveDateTime,
+    /// The number of files analyzed
+    pub num_files: usize,
+    /// The number of maps
+    pub num_maps: usize,
+    /// The number of players
+    pub num_players: usize,
 }
 
 /// Basic response for map frequency
@@ -66,7 +76,7 @@ pub struct SC2MapPicker {
 
     /// Wether the map selection is open
     #[serde(skip)]
-    is_open_map_selection: bool,
+    pub is_open_map_selection: bool,
 }
 
 impl SC2MapPicker {
