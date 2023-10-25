@@ -2,7 +2,6 @@
 
 use std::time::Instant;
 
-use chrono::Duration;
 use serde::{Deserialize, Serialize};
 
 /// The status of the response
@@ -13,6 +12,12 @@ pub enum ResponseStatus {
     Ok,
     /// There was an error
     Error { message: String },
+}
+
+impl Default for ResponseStatus {
+    fn default() -> Self {
+        Self::Ok
+    }
 }
 
 /// Contains the meta data of data frame results to be sent back to the clients.

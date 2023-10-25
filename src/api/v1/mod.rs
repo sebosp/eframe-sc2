@@ -1,7 +1,7 @@
 //! API V1 routes
 
-pub mod analyzed_snapshot_meta;
 pub mod details;
+pub mod snapshot_stats;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
@@ -16,8 +16,8 @@ use crate::server::AppState;
 pub fn routes(state: State<Arc<AppState>>) -> Router {
     Router::new()
         .route(
-            "/analyzed_snapshot_meta",
-            get(analyzed_snapshot_meta::server::route_analyzed_snapshot_meta),
+            "/snapshot_stats",
+            get(snapshot_stats::server::route_snapshot_stats),
         )
         .with_state(state)
         .nest("/details", details::routes(state))

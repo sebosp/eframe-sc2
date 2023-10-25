@@ -41,26 +41,22 @@ pub struct ListDetailsMapRes {
     /// Metadata of the response
     pub meta: crate::meta::ResponseMeta,
     /// The data of the response
-    pub data: Vec<MapCount>,
-    /// The minimum date of the snapshot taken
-    pub min_date: chrono::NaiveDateTime,
-    /// The maximum date of the snapshot taken
-    pub max_date: chrono::NaiveDateTime,
-    /// The number of files analyzed
-    pub num_files: usize,
-    /// The number of maps
-    pub num_maps: usize,
-    /// The number of players
-    pub num_players: usize,
+    pub data: Vec<MapStats>,
 }
 
 /// Basic response for map frequency
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct MapCount {
+pub struct MapStats {
     /// Teh name of the map
     pub title: String,
     /// The amount of replays on this map
     pub count: u32,
+    /// The minimum date of the snapshot taken
+    pub min_date: chrono::NaiveDateTime,
+    /// The maximum date of the snapshot taken
+    pub max_date: chrono::NaiveDateTime,
+    /// The number of players
+    pub num_players: usize,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]

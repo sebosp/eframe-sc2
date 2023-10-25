@@ -14,5 +14,5 @@ pub struct SnapshotStats {
     /// The size of the IPC files
     pub directory_size: u64,
     /// The time of modification of the details IPC file.
-    pub date_modified: chrono::NaiveDateTime,
+    pub date_modified: std::time::SystemTime,
 }

@@ -11,6 +11,7 @@ pub async fn route_query_maps(
     req: Query<ListDetailsMapReq>,
     state: State<Arc<AppState>>,
 ) -> (StatusCode, Json<ListDetailsMapRes>) {
+    let meta = ResponseMetaBuilder::new();
     match super::dataframe::get_map_freq(req.into(), state.into()).await {
         Ok(res) => (StatusCode::OK, Json(res)),
         Err(e) => {
@@ -18,12 +19,10 @@ pub async fn route_query_maps(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ListDetailsMapRes {
-                    meta: ResponseMeta {
-                        status: "error".to_string(),
-                        message: e.to_string(),
-                        total: 0,
-                        snapshot_epoch: chrono::Utc::now().timestamp_millis() as u64,
-                    },
+                    meta: meta
+                        .with_status("error")
+                        .with_message(e.to_string())
+                        .build(),
                     data: vec![],
                 }),
             )

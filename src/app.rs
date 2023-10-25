@@ -1,6 +1,6 @@
 //! Main app
 
-use crate::meta::AnalyzedSnapshotMeta;
+use crate::meta::SnapshotStats;
 use eframe::egui;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -9,7 +9,7 @@ use eframe::egui;
 pub struct SC2ReplayExplorer {
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
-    analyzed_snapshot_meta: Option<poll_promise::Promise<AnalyzedSnapshotMeta>>,
+    analyzed_snapshot_meta: Option<poll_promise::Promise<SnapshotStats>>,
 
     /// The Map selection UI
     #[serde(skip)]
@@ -75,7 +75,7 @@ impl SC2ReplayExplorer {
     }
 
     /// Loads basic information about the analyzed metadata
-    async fn load_analyzed_snapshot_meta() -> AnalyzedSnapshotMeta {
+    async fn load_analyzed_snapshot_meta() -> SnapshotStats {
         let request = ehttp::Request::get("/api/v1/analyzed_snapshot_meta");
         ehttp::fetch_async(request)
             .await
