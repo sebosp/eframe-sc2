@@ -9,7 +9,6 @@ use axum::{
     routing::Router,
 };
 use hyper::upgrade::Upgraded;
-use std::sync::Arc;
 use tokio::net::TcpStream;
 use tower::{make::Shared, ServiceExt};
 use tower_http::services::ServeDir;
@@ -30,7 +29,7 @@ pub async fn start_server(cli: &crate::cli::Cli) {
     tracing::info!("Starting server on {}:{}", ip, port);
     // Start a backend thread to serve requests
     tokio::spawn(async move {
-        let shared_state = Arc::new(AppState { source_dir });
+        let shared_state = AppState { source_dir };
         let router_svc = Router::new()
             .layer(
                 TraceLayer::new_for_http()

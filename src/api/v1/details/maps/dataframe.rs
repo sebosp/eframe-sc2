@@ -51,7 +51,6 @@ pub async fn get_map_freq(
         )
         .limit(1000)
         .collect()?;
-    let num_maps = res.height();
     let data_str = crate::common::convert_df_to_json_data(&res)?;
     let data: Vec<MapStats> = serde_json::from_str(&data_str)?;
 

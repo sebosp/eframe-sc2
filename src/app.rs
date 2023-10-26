@@ -1,6 +1,6 @@
 //! Main app
 
-use crate::meta::SnapshotStats;
+use crate::api::v1::snapshot_stats::SnapshotStats;
 use eframe::egui;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -9,7 +9,7 @@ use eframe::egui;
 pub struct SC2ReplayExplorer {
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
-    analyzed_snapshot_meta: Option<poll_promise::Promise<SnapshotStats>>,
+    snapshot_stats: Option<poll_promise::Promise<SnapshotStats>>,
 
     /// The Map selection UI
     #[serde(skip)]
@@ -44,7 +44,7 @@ impl Default for SC2ReplayExplorer {
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
-            analyzed_snapshot_meta: Default::default(),
+            snapshot_stats: Default::default(),
             file_request_future: None,
             replay_details: None,
             replay_details_status_color: egui::Color32::GREEN,
@@ -75,8 +75,8 @@ impl SC2ReplayExplorer {
     }
 
     /// Loads basic information about the analyzed metadata
-    async fn load_analyzed_snapshot_meta() -> SnapshotStats {
-        let request = ehttp::Request::get("/api/v1/analyzed_snapshot_meta");
+    async fn load_snapshot_stats() -> SnapshotStats {
+        let request = ehttp::Request::get("/api/v1/snapshot_stats");
         ehttp::fetch_async(request)
             .await
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
@@ -116,28 +116,30 @@ impl eframe::App for SC2ReplayExplorer {
                     if ui.button("Reload Stats").clicked() {
                         #[cfg(target_arch = "wasm32")]
                         {
-                            self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_local(
-                                Self::load_analyzed_snapshot_meta(),
+                            self.snapshot_stats = Some(poll_promise::Promise::spawn_local(
+                                Self::load_snapshot_stats(),
                             ));
                         }
                         #[cfg(not(target_arch = "wasm32"))]
                         {
-                            self.analyzed_snapshot_meta = Some(poll_promise::Promise::spawn_async(
-                                Self::load_analyzed_snapshot_meta(),
+                            self.snapshot_stats = Some(poll_promise::Promise::spawn_async(
+                                Self::load_snapshot_stats(),
                             ));
                         }
                     }
-                    if let Some(analyzed_snapshot_meta) = &self.analyzed_snapshot_meta {
-                        if let Some(analyzed_snapshot_meta) = analyzed_snapshot_meta.ready() {
+                    if let Some(snapshot_stats) = &self.snapshot_stats {
+                        if let Some(snapshot_stats) = snapshot_stats.ready() {
                             // Crete a floating panel with the stats
-                            ui.label(format!("Total files: {}", analyzed_snapshot_meta.num_files));
-                            ui.label(format!("Total maps: {}", analyzed_snapshot_meta.num_maps));
-                            ui.label(format!("Min date: {:?}", analyzed_snapshot_meta.min_date));
-                            ui.label(format!("Max date: {:?}", analyzed_snapshot_meta.max_date));
+                            /*ui.label(format!("Total files: {}", snapshot_stats.num_files));
+                            ui.label(format!("Total maps: {}", snapshot_stats.num_maps));
+                            ui.label(format!("Min date: {:?}", snapshot_stats.min_date));
+                            ui.label(format!("Max date: {:?}", snapshot_stats.max_date));
                             ui.label(format!(
                                 "Total players: {}",
-                                analyzed_snapshot_meta.num_players
-                            ));
+                                snapshot_stats.num_players
+                            ));*/
+                            ui.label(format!("Directory Size: {}", snapshot_stats.directory_size));
+                            ui.label(format!("Snashot date: {:?}", snapshot_stats.date_modified));
                         } else {
                             ui.label("Loading snapshot metadata...");
                         }

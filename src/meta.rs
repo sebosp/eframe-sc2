@@ -35,13 +35,7 @@ pub struct ResponseMeta {
 
 impl ResponseMeta {
     /// Creates a new ResponseMeta
-    pub fn new(
-        status: ResponseStatus,
-        total: usize,
-        epoch: u64,
-        message: String,
-        duration: u64,
-    ) -> Self {
+    pub fn new(status: ResponseStatus, total: usize, epoch: u64, duration: u64) -> Self {
         Self {
             status,
             total,
@@ -61,6 +55,8 @@ impl ResponseMeta {
     }
 }
 
+/// Builder for ResponseMeta
+#[derive(Debug)]
 pub struct ResponseMetaBuilder {
     /// Wether there was an error or not
     pub status: ResponseStatus,
@@ -72,15 +68,21 @@ pub struct ResponseMetaBuilder {
     pub start: Instant,
 }
 
-impl ResponseMetaBuilder {
-    /// Creates a new ResponseMetaBuilder
-    pub fn new() -> Self {
+impl Default for ResponseMetaBuilder {
+    fn default() -> Self {
         Self {
             status: ResponseStatus::Ok,
             total: 0,
             epoch: chrono::Utc::now().timestamp_millis() as u64,
             start: Instant::now(),
         }
+    }
+}
+
+impl ResponseMetaBuilder {
+    /// Creates a new ResponseMetaBuilder
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Sets the total number of rows in the data frame
