@@ -18,7 +18,7 @@ pub async fn get_metadata(state: AppState) -> Result<SnapshotStats, crate::error
     }
     // get the date_modified of the details.ipc file
     let details_ipc_filename = format!("{}/{}", state.source_dir, crate::DETAILS_IPC);
-    let date_modified = std::fs::metadata(&details_ipc_filename)?.modified()?;
+    let date_modified = std::fs::metadata(details_ipc_filename)?.modified()?;
     Ok(SnapshotStats {
         directory_size,
         date_modified,
