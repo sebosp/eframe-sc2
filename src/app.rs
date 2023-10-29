@@ -61,7 +61,10 @@ impl SC2ReplayExplorer {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
-        Default::default()
+        let mut res: SC2ReplayExplorer = Default::default();
+        res.map_picker.req_details_maps();
+        //res.snapshot_stats.req_snapshot_stats();
+        res
     }
 
     /// Loads a file Using rfd file open dialog

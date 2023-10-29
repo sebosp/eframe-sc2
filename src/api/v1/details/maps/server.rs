@@ -10,8 +10,10 @@ pub async fn route_query_maps(
     req: Query<ListDetailsMapReq>,
     State(state): State<AppState>,
 ) -> (StatusCode, Json<ListDetailsMapRes>) {
+    tracing::info!("Querying maps: {:?}", req);
+    let unescaped = req.0.from_escaped();
     let meta = ResponseMetaBuilder::new();
-    match super::dataframe::get_map_freq(req.0, state).await {
+    match super::dataframe::get_map_freq(unescaped, state).await {
         Ok(res) => (StatusCode::OK, Json(res)),
         Err(e) => {
             tracing::error!("Error: {}", e);

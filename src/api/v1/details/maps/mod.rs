@@ -1,6 +1,5 @@
 //! Map count related queries
 
-use urlencoding::encode;
 pub mod ui;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -9,7 +8,6 @@ pub mod dataframe;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod server;
 
-use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 /// Basic query request available for filtering replay maps
@@ -29,10 +27,32 @@ pub struct ListDetailsMapReq {
     pub file_hash: String,
     /// Minimum bound of the file date
     #[serde(default)]
-    pub file_min_date: String,
+    pub file_min_date: chrono::NaiveDate,
     /// Max bound of the file date
     #[serde(default)]
-    pub file_max_date: String,
+    pub file_max_date: chrono::NaiveDate,
+}
+
+impl ListDetailsMapReq {
+    /// Returns a new instance of the request with the unescaped values
+    pub fn from_escaped(self) -> Self {
+        Self {
+            title: urlencoding::decode(&self.title)
+                .unwrap_or_default()
+                .to_string(),
+            player: urlencoding::decode(&self.player)
+                .unwrap_or_default()
+                .to_string(),
+            file_name: urlencoding::decode(&self.file_name)
+                .unwrap_or_default()
+                .to_string(),
+            file_hash: urlencoding::decode(&self.file_hash)
+                .unwrap_or_default()
+                .to_string(),
+            file_min_date: self.file_min_date,
+            file_max_date: self.file_max_date,
+        }
+    }
 }
 
 /// Basic query response available for filtering replay maps
@@ -55,8 +75,6 @@ pub struct MapStats {
     pub min_date: chrono::NaiveDateTime,
     /// The maximum date of the snapshot taken
     pub max_date: chrono::NaiveDateTime,
-    /// The number of players
-    pub num_players: usize,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
@@ -75,75 +93,29 @@ pub struct SC2MapPicker {
     pub is_open_map_selection: bool,
 }
 
-impl SC2MapPicker {
-    /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
+// test module
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        Default::default()
-    }
-
-    async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
-        let mut query_params: Vec<String> = vec![];
-        query_params.push(format!("title={}", encode(&filters.title)));
-        query_params.push(format!("player={}", encode(&filters.player)));
-        query_params.push(format!("file_name={}", encode(&filters.file_name)));
-        query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
-        query_params.push(format!("file_min_date={}", encode(&filters.file_min_date)));
-        query_params.push(format!("file_max_date={}", encode(&filters.file_max_date)));
-        let query_url = format!("/api/v1/details/maps?{}", query_params.join("&"));
-        ehttp::fetch_async(ehttp::Request::get(query_url))
-            .await
-            .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
-            .unwrap_or_default()
-    }
-
-    /// Requests the async operation to get the details of the maps to the HTTP server.
-    fn req_details_maps(&mut self) {
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.response = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
-                self.request.clone(),
-            )));
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.response = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
-                self.request.clone(),
-            )));
-        }
-    }
-}
-
-impl eframe::App for SC2MapPicker {
-    /// Called by the framework to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
-    }
-
-    /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut open = self.is_open_map_selection;
-        egui::Window::new("Map Selection")
-            .default_width(480.0)
-            .default_height(320.0)
-            .open(&mut open)
-            .show(ctx, |ui| {
-                if ui.button("Load Backend Stats").clicked() {
-                    self.req_details_maps();
-                }
-                ui.horizontal(|ui| {
-                    ui.label("Filters > ");
-                    ui.label("Maps Title: ");
-                    ui.text_edit_singleline(&mut self.request.title);
-                });
-                if let Some(response) = &self.response {
-                    if let Some(response) = response.ready() {
-                        ui::table_div(ui, &response.data);
-                    }
-                }
-            });
+    #[test]
+    fn test_serde_map_stats() {
+        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852}"#;
+        let example: MapStats = serde_json::from_str(example_str).unwrap();
+        assert_eq!(
+            example,
+            MapStats {
+                title: "Emerald City LE".to_string(),
+                count: 1852,
+                min_date: chrono::NaiveDate::from_ymd_opt(2021, 4, 12)
+                    .unwrap()
+                    .and_hms_milli_opt(13, 55, 57, 58)
+                    .unwrap(),
+                max_date: chrono::NaiveDate::from_ymd_opt(2023, 9, 1)
+                    .unwrap()
+                    .and_hms_milli_opt(15, 1, 38, 400)
+                    .unwrap(),
+            }
+        );
     }
 }

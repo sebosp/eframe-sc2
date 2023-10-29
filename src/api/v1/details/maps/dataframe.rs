@@ -13,9 +13,7 @@ pub async fn get_map_freq(
     let mut query = LazyFrame::scan_ipc(
         format!("{}/{}", state.source_dir, crate::DETAILS_IPC),
         Default::default(),
-    )?
-    .explode(["player_list"])
-    .unnest(["player_list"]);
+    )?;
     if !req.title.is_empty() {
         query = query.filter(
             col("title")
@@ -26,21 +24,31 @@ pub async fn get_map_freq(
         );
     }
     if !req.player.is_empty() {
-        query = query.filter(
-            col("name")
-                .str()
-                .to_lowercase()
-                .str()
-                .contains_literal(lit(req.player.to_lowercase())),
-        );
+        query = query
+            .explode(["player_list"])
+            .unnest(["player_list"])
+            .filter(
+                col("name")
+                    .str()
+                    .to_lowercase()
+                    .str()
+                    .contains_literal(lit(req.player.to_lowercase())),
+            );
     }
     let res = query
         .group_by([col("title")])
         .agg([
             col("title").count().alias("count"),
-            col("ext_datetime").min().alias("min_date"),
-            col("ext_datetime").max().alias("max_date"),
-            col("player_list").count().alias("player_count"),
+            col("ext_datetime")
+                .min()
+                .dt()
+                .to_string("%Y-%m-%dT%H:%M:%S")
+                .alias("min_date"),
+            col("ext_datetime")
+                .max()
+                .dt()
+                .to_string("%Y-%m-%dT%H:%M:%S")
+                .alias("max_date"),
         ])
         .sort(
             "count",
@@ -52,6 +60,7 @@ pub async fn get_map_freq(
         .limit(1000)
         .collect()?;
     let data_str = crate::common::convert_df_to_json_data(&res)?;
+    tracing::info!("Data: {}", data_str);
     let data: Vec<MapStats> = serde_json::from_str(&data_str)?;
 
     Ok(ListDetailsMapRes {
