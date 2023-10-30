@@ -13,7 +13,12 @@ pub async fn get_map_freq(
     let mut query = LazyFrame::scan_ipc(
         format!("{}/{}", state.source_dir, crate::DETAILS_IPC),
         Default::default(),
-    )?;
+    )?
+    .filter(
+        col("ext_datetime")
+            .gt(lit(req.file_min_date))
+            .and(col("ext_datetime").lt(lit(req.file_max_date))),
+    );
     if !req.title.is_empty() {
         query = query.filter(
             col("title")
@@ -21,6 +26,24 @@ pub async fn get_map_freq(
                 .to_lowercase()
                 .str()
                 .contains_literal(lit(req.title.to_lowercase())),
+        );
+    }
+    if !req.file_name.is_empty() {
+        query = query.filter(
+            col("ext_fs_replay_file_name")
+                .str()
+                .to_lowercase()
+                .str()
+                .contains_literal(lit(req.file_name.to_lowercase())),
+        );
+    }
+    if !req.file_hash.is_empty() {
+        query = query.filter(
+            col("ext_fs_replay_sha256")
+                .str()
+                .to_lowercase()
+                .str()
+                .contains_literal(lit(req.file_hash.to_lowercase())),
         );
     }
     if !req.player.is_empty() {

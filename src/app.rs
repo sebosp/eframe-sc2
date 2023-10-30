@@ -57,14 +57,14 @@ impl SC2ReplayExplorer {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
-
-        let mut res: SC2ReplayExplorer = Default::default();
-        res.map_picker.req_details_maps();
-        //res.snapshot_stats.req_snapshot_stats();
-        res
+        let mut app_state: SC2ReplayExplorer = if let Some(storage) = cc.storage {
+            log::info!("Loading app state");
+            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+        } else {
+            Default::default()
+        };
+        app_state.map_picker.req_details_maps();
+        app_state
     }
 
     /// Loads a file Using rfd file open dialog
@@ -161,7 +161,7 @@ impl eframe::App for SC2ReplayExplorer {
             ui.label("Drag-and-drop SC2Replay file onto the window!");
 
             if ui.button("Open map selection").clicked() {
-                self.map_picker.is_open_map_selection = true;
+                self.map_picker.is_open_map_selection = !self.map_picker.is_open_map_selection;
             }
             if ui.button("Open file...").clicked() {
                 #[cfg(target_arch = "wasm32")]

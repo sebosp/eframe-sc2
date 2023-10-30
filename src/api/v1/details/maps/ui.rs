@@ -43,12 +43,14 @@ impl SC2MapPicker {
     pub fn req_details_maps(&mut self) {
         #[cfg(target_arch = "wasm32")]
         {
+            log::info!("Requesting details maps");
             self.response = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
                 self.request.clone(),
             )));
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
+            tracing::info!("Requesting details maps");
             self.response = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
                 self.request.clone(),
             )));
@@ -112,7 +114,23 @@ impl eframe::App for SC2MapPicker {
                     }
                 });
                 if let Some(response) = &self.response {
+                    // get the current time in NaiveDateTime
                     if let Some(response) = response.ready() {
+                        self.request.file_min_date = response
+                            .data
+                            .iter()
+                            .fold(chrono::Local::now().naive_local(), |acc, x| {
+                                std::cmp::min(acc, x.min_date)
+                            })
+                            .date();
+                        self.request.file_max_date = response
+                            .data
+                            .iter()
+                            .fold(
+                                chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
+                                |acc, x| std::cmp::max(acc, x.max_date),
+                            )
+                            .date();
                         table_div(ui, &response.data);
                     }
                 }

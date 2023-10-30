@@ -11,7 +11,7 @@ pub mod server;
 use serde::{Deserialize, Serialize};
 
 /// Basic query request available for filtering replay maps
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ListDetailsMapReq {
     /// The title of the map
     #[serde(default)]
@@ -31,6 +31,19 @@ pub struct ListDetailsMapReq {
     /// Max bound of the file date
     #[serde(default)]
     pub file_max_date: chrono::NaiveDate,
+}
+
+impl Default for ListDetailsMapReq {
+    fn default() -> Self {
+        Self {
+            title: Default::default(),
+            player: Default::default(),
+            file_name: Default::default(),
+            file_hash: Default::default(),
+            file_min_date: chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap(),
+            file_max_date: chrono::Local::now().naive_local().date(),
+        }
+    }
 }
 
 impl ListDetailsMapReq {
