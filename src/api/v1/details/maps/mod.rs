@@ -40,8 +40,8 @@ impl Default for ListDetailsMapReq {
             player: Default::default(),
             file_name: Default::default(),
             file_hash: Default::default(),
-            file_min_date: chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap(),
-            file_max_date: chrono::Local::now().naive_local().date(),
+            file_min_date: Self::default_min_date(),
+            file_max_date: Self::default_max_date(),
         }
     }
 }
@@ -65,6 +65,16 @@ impl ListDetailsMapReq {
             file_min_date: self.file_min_date,
             file_max_date: self.file_max_date,
         }
+    }
+
+    /// Creates a default min date for dropdowns on date filters.
+    pub fn default_min_date() -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()
+    }
+
+    /// Creates a default max date for dropdowns on date filters.
+    pub fn default_max_date() -> chrono::NaiveDate {
+        chrono::Local::now().naive_local().date()
     }
 }
 
@@ -99,11 +109,15 @@ pub struct SC2MapPicker {
 
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
-    response: Option<poll_promise::Promise<ListDetailsMapRes>>,
+    map_list: Option<poll_promise::Promise<ListDetailsMapRes>>,
 
     /// Wether the map selection is open
     #[serde(skip)]
     pub is_open_map_selection: bool,
+
+    /// The selected map
+    #[serde(skip)]
+    pub selected_map: Option<String>,
 }
 
 // test module

@@ -5,6 +5,7 @@ use crate::server::AppState;
 use polars::prelude::*;
 
 /// Gets the list of maps from the details.ipc file
+#[tracing::instrument(level = "debug", skip(state))]
 pub async fn get_map_freq(
     req: ListDetailsMapReq,
     state: AppState,
@@ -20,6 +21,7 @@ pub async fn get_map_freq(
             .and(col("ext_datetime").lt(lit(req.file_max_date))),
     );
     if !req.title.is_empty() {
+        tracing::info!("Not empty title: {}", req.title);
         query = query.filter(
             col("title")
                 .str()
@@ -82,6 +84,7 @@ pub async fn get_map_freq(
         )
         .limit(1000)
         .collect()?;
+    tracing::trace!("ListDetailsMapRes: {:?}", res);
     let data_str = crate::common::convert_df_to_json_data(&res)?;
     tracing::info!("Data: {}", data_str);
     let data: Vec<MapStats> = serde_json::from_str(&data_str)?;

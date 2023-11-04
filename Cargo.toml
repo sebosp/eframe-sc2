@@ -31,7 +31,7 @@ poll-promise = { version = "0.3", features = ["tokio"] }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.6.20", features = ["ws"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"]}
-polars = { version = "0.33.2", features = ["docs-selection", "trigonometry", "lazy_regex", "strings"] }
+polars = { version = "0.34.2", features = ["docs-selection", "trigonometry", "lazy_regex", "strings"] }
 tracing = "0.1"
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1.0.164", features = ["derive"] }

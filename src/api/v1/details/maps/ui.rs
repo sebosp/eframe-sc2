@@ -44,14 +44,14 @@ impl SC2MapPicker {
         #[cfg(target_arch = "wasm32")]
         {
             log::info!("Requesting details maps");
-            self.response = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
+            self.map_list = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
                 self.request.clone(),
             )));
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
             tracing::info!("Requesting details maps");
-            self.response = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
+            self.map_list = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
                 self.request.clone(),
             )));
         }
@@ -113,89 +113,104 @@ impl eframe::App for SC2MapPicker {
                         self.req_details_maps();
                     }
                 });
-                if let Some(response) = &self.response {
-                    // get the current time in NaiveDateTime
-                    if let Some(response) = response.ready() {
-                        self.request.file_min_date = response
-                            .data
-                            .iter()
-                            .fold(chrono::Local::now().naive_local(), |acc, x| {
-                                std::cmp::min(acc, x.min_date)
-                            })
-                            .date();
-                        self.request.file_max_date = response
-                            .data
-                            .iter()
-                            .fold(
-                                chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-                                |acc, x| std::cmp::max(acc, x.max_date),
-                            )
-                            .date();
-                        table_div(ui, &response.data);
+                let map_list: Vec<MapStats> = if let Some(map_list) = &self.map_list {
+                    if let Some(map_list) = map_list.ready() {
+                        map_list.data.clone()
+                    } else {
+                        vec![]
                     }
-                }
+                } else {
+                    vec![]
+                };
+                self.request.file_min_date = map_list
+                    .iter()
+                    .map(|x| x.min_date.date())
+                    .min()
+                    .unwrap_or(ListDetailsMapReq::default_min_date());
+                self.request.file_max_date = map_list
+                    .iter()
+                    .map(|x| x.max_date.date())
+                    .max()
+                    .unwrap_or(ListDetailsMapReq::default_max_date());
+                self.table_div(ui, &map_list);
             });
     }
 }
-/// Builds a portion of the UI to be used for the Maps table.
-fn table_div(ui: &mut Ui, maps: &[MapStats]) {
-    ui.vertical(|ui| {
-        ui.heading("Maps");
-        ui.separator();
-        ui.allocate_ui(
-            egui::Vec2::new(ui.available_width(), ui.available_height() * 0.5),
-            |ui| {
-                table_inner(ui, maps);
-            },
-        );
-    });
-}
 
-/// Builds a table for egui with basic map information.
-fn table_inner(ui: &mut Ui, maps: &[MapStats]) {
-    let table = TableBuilder::new(ui)
-        .striped(true)
-        .resizable(true)
-        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        .column(Column::auto())
-        .column(Column::initial(100.0).at_least(40.0).clip(true))
-        .column(Column::auto())
-        .column(Column::auto())
-        .column(Column::remainder())
-        .min_scrolled_height(0.0);
-
-    table
-        .header(20.0, |mut header| {
-            header.col(|ui| {
-                ui.strong("Row");
-            });
-            header.col(|ui| {
-                ui.strong("freq");
-            });
-            header.col(|ui| {
-                ui.strong("title");
-            });
-        })
-        .body(|mut body| {
-            let max_games_on_map = maps.iter().map(|x| x.count).max().unwrap_or(0);
-            for (idx, map) in maps.iter().enumerate() {
-                let row_height = 18.0;
-                body.row(row_height, |mut row| {
-                    let map_ratio = map.count as f32 / max_games_on_map as f32;
-                    row.col(|ui| {
-                        ui.label(idx.to_string());
-                    });
-                    row.col(|ui| {
-                        // Create a bar that has the size of the total games divided by the current map count
-                        let bar = egui::ProgressBar::new(map_ratio)
-                            .desired_width(ui.available_width())
-                            .text(map.count.to_string());
-                        ui.add(bar);
-                    });
-                    row.col(|ui| {
-                        ui.label(map.title.clone());
-                    });
-                });
-            }
+impl SC2MapPicker {
+    /// Builds a portion of the UI to be used for the Maps table.
+    fn table_div(&mut self, ui: &mut Ui, maps: &[MapStats]) {
+        ui.vertical(|ui| {
+            ui.heading("Maps");
+            ui.separator();
+            ui.allocate_ui(
+                egui::Vec2::new(ui.available_width(), ui.available_height() * 0.5),
+                |ui| {
+                    self.table_inner(ui, maps);
+                },
+            );
         });
+    }
+
+    /// Builds a table for egui with basic map information.
+    fn table_inner(&mut self, ui: &mut Ui, maps: &[MapStats]) {
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(true)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::auto())
+            .column(Column::initial(100.0).at_least(40.0).clip(true))
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::remainder())
+            .min_scrolled_height(0.0);
+
+        table
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Row");
+                });
+                header.col(|ui| {
+                    ui.strong("freq");
+                });
+                header.col(|ui| {
+                    ui.strong("title");
+                });
+                header.col(|ui| {
+                    ui.strong("Liquipedia link");
+                });
+            })
+            .body(|mut body| {
+                let max_games_on_map = maps.iter().map(|x| x.count).max().unwrap_or(0);
+                for (idx, map) in maps.iter().enumerate() {
+                    let row_height = 18.0;
+                    body.row(row_height, |mut row| {
+                        let map_ratio = map.count as f32 / max_games_on_map as f32;
+                        row.col(|ui| {
+                            ui.label(idx.to_string());
+                        });
+                        row.col(|ui| {
+                            // Create a bar that has the size of the total games divided by the current map count
+                            let bar = egui::ProgressBar::new(map_ratio)
+                                .desired_width(ui.available_width())
+                                .text(map.count.to_string());
+                            ui.add(bar);
+                        });
+                        row.col(|ui| {
+                            if ui.label(map.title.clone()).clicked() {
+                                self.selected_map = Some(map.title.clone());
+                            }
+                        });
+                        row.col(|ui| {
+                            // The map is underscare separated in the liquipedia link:
+                            let map_title = map.title.replace(' ', "_");
+                            ui.hyperlink_to(
+                                map.title.clone(),
+                                format!("https://liquipedia.net/starcraft2/{}", map_title),
+                            );
+                        });
+                    });
+                }
+            });
+    }
 }
