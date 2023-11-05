@@ -1,5 +1,6 @@
 //! Main app
 
+use crate::api::v1::details::maps::SC2MapPicker;
 use crate::api::v1::snapshot_stats::SnapshotStats;
 use eframe::egui;
 
@@ -13,7 +14,7 @@ pub struct SC2ReplayExplorer {
 
     /// The Map selection UI
     #[serde(skip)]
-    map_picker: crate::api::v1::details::maps::SC2MapPicker,
+    map_picker: SC2MapPicker,
 
     /// A filter in the future
     #[serde(skip)]
@@ -35,12 +36,34 @@ pub struct SC2ReplayExplorer {
     /// The details status
     #[serde(skip)]
     replay_details_status_color: egui::Color32,
+
+    /// Wether the map selection is open
+    #[serde(skip)]
+    pub is_open_map_selection: bool,
+
+    /// A control channel handle for the different elements
+    #[serde(skip)]
+    tx: tokio::sync::mpsc::Sender<AppEvent>,
+
+    /// A control channel handle for the different elements
+    #[serde(skip)]
+    rx: tokio::sync::mpsc::Receiver<AppEvent>,
+}
+
+pub enum AppEvent {
+    /// Closes the map picker window
+    CloseMapPicker,
+    /// Selects a specific Map by title
+    SelectedMap(String),
+    /// Exits the main application
+    Exit,
 }
 
 impl Default for SC2ReplayExplorer {
     fn default() -> Self {
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
         Self {
-            map_picker: Default::default(),
+            map_picker: SC2MapPicker::new(tx.clone()),
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
@@ -48,6 +71,9 @@ impl Default for SC2ReplayExplorer {
             file_request_future: None,
             replay_details: None,
             replay_details_status_color: egui::Color32::GREEN,
+            is_open_map_selection: false,
+            tx,
+            rx,
         }
     }
 }
@@ -65,6 +91,42 @@ impl SC2ReplayExplorer {
         };
         app_state.map_picker.req_details_maps();
         app_state
+    }
+
+    /// Spawns the Majordomo Coordinator
+    pub fn spawn_mdp_coordinator(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.snapshot_stats = Some(poll_promise::Promise::spawn_local(
+                Self::load_snapshot_stats(),
+            ));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.snapshot_stats = Some(poll_promise::Promise::spawn_async(
+                Self::load_snapshot_stats(),
+            ));
+        }
+    }
+
+    /// Starts the Majordomo Coordinator , which is a loop that handles the different
+    /// events from the different components.
+    pub async fn mdp_coordinator(&mut self) {
+        loop {
+            while let Some(event) = self.rx.recv().await {
+                match event {
+                    AppEvent::CloseMapPicker => {
+                        self.is_open_map_selection = false;
+                    }
+                    AppEvent::SelectedMap(map_title) => {
+                        self.map_picker.selected_map = Some(map_title);
+                    }
+                    AppEvent::Exit => {
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /// Loads a file Using rfd file open dialog
@@ -161,7 +223,7 @@ impl eframe::App for SC2ReplayExplorer {
             ui.label("Drag-and-drop SC2Replay file onto the window!");
 
             if ui.button("Open map selection").clicked() {
-                self.map_picker.is_open_map_selection = !self.map_picker.is_open_map_selection;
+                self.is_open_map_selection = !self.is_open_map_selection;
             }
             if ui.button("Open file...").clicked() {
                 #[cfg(target_arch = "wasm32")]
@@ -176,7 +238,10 @@ impl eframe::App for SC2ReplayExplorer {
                 }
             }
 
-            self.map_picker.update(ctx, frame);
+            let mut is_open_map_selection = self.is_open_map_selection;
+            self.map_picker
+                .update(ctx, &mut is_open_map_selection, self.tx.clone());
+            self.is_open_map_selection = is_open_map_selection;
 
             if let Some(file_async) = &self.file_request_future {
                 if let Some(Some(file_contents)) = file_async.ready() {

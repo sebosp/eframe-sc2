@@ -1,141 +1,13 @@
 //! Contains the UI for the map frequency table.
 
+use crate::app::AppEvent;
+
 use super::MapStats;
-use super::{ListDetailsMapReq, ListDetailsMapRes, SC2MapPicker};
+use super::{ListDetailsMapReq, SC2MapPicker};
 use eframe::egui;
 use egui::Ui;
 use egui::Widget;
 use egui_extras::{Column, DatePickerButton, TableBuilder};
-use urlencoding::encode;
-
-impl SC2MapPicker {
-    /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
-
-        Default::default()
-    }
-
-    async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
-        let mut query_params: Vec<String> = vec![];
-        query_params.push(format!("title={}", encode(&filters.title)));
-        query_params.push(format!("player={}", encode(&filters.player)));
-        query_params.push(format!("file_name={}", encode(&filters.file_name)));
-        query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
-        query_params.push(format!(
-            "file_min_date={}",
-            encode(&filters.file_min_date.to_string())
-        ));
-        query_params.push(format!(
-            "file_max_date={}",
-            encode(&filters.file_max_date.to_string())
-        ));
-        let query_url = format!("/api/v1/details/maps?{}", query_params.join("&"));
-        ehttp::fetch_async(ehttp::Request::get(query_url))
-            .await
-            .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
-            .unwrap_or_default()
-    }
-
-    /// Requests the async operation to get the details of the maps to the HTTP server.
-    pub fn req_details_maps(&mut self) {
-        #[cfg(target_arch = "wasm32")]
-        {
-            log::info!("Requesting details maps");
-            self.map_list = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
-                self.request.clone(),
-            )));
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            tracing::info!("Requesting details maps");
-            self.map_list = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
-                self.request.clone(),
-            )));
-        }
-    }
-}
-
-impl eframe::App for SC2MapPicker {
-    /// Called by the framework to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
-    }
-
-    /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut open = self.is_open_map_selection;
-        egui::Window::new("Map Selection")
-            .default_width(480.0)
-            .default_height(480.0)
-            .open(&mut open)
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Filters > ");
-                    ui.label("Map: ");
-                    if ui.text_edit_singleline(&mut self.request.title).changed() {
-                        self.req_details_maps();
-                    }
-                    ui.label("Player: ");
-                    if ui.text_edit_singleline(&mut self.request.player).changed() {
-                        self.req_details_maps();
-                    }
-                    ui.label("File Path: ");
-                    if ui
-                        .text_edit_singleline(&mut self.request.file_name)
-                        .changed()
-                    {
-                        self.req_details_maps();
-                    }
-                    ui.label("File Hash: ");
-                    if ui
-                        .text_edit_singleline(&mut self.request.file_hash)
-                        .changed()
-                    {
-                        self.req_details_maps();
-                    }
-                    ui.label("Min date: ");
-                    if DatePickerButton::new(&mut self.request.file_min_date)
-                        .id_source("min_date")
-                        .ui(ui)
-                        .changed()
-                    {
-                        self.req_details_maps();
-                    }
-                    ui.label("Max date: ");
-                    if DatePickerButton::new(&mut self.request.file_max_date)
-                        .id_source("max_date")
-                        .ui(ui)
-                        .changed()
-                    {
-                        self.req_details_maps();
-                    }
-                });
-                let map_list: Vec<MapStats> = if let Some(map_list) = &self.map_list {
-                    if let Some(map_list) = map_list.ready() {
-                        map_list.data.clone()
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    vec![]
-                };
-                self.request.file_min_date = map_list
-                    .iter()
-                    .map(|x| x.min_date.date())
-                    .min()
-                    .unwrap_or(ListDetailsMapReq::default_min_date());
-                self.request.file_max_date = map_list
-                    .iter()
-                    .map(|x| x.max_date.date())
-                    .max()
-                    .unwrap_or(ListDetailsMapReq::default_max_date());
-                self.table_div(ui, &map_list);
-            });
-    }
-}
 
 impl SC2MapPicker {
     /// Builds a portion of the UI to be used for the Maps table.
@@ -204,13 +76,90 @@ impl SC2MapPicker {
                         row.col(|ui| {
                             // The map is underscare separated in the liquipedia link:
                             let map_title = map.title.replace(' ', "_");
-                            ui.hyperlink_to(
-                                map.title.clone(),
+                            egui::Hyperlink::from_label_and_url(
+                                &map_title,
                                 format!("https://liquipedia.net/starcraft2/{}", map_title),
-                            );
+                            )
+                            .open_in_new_tab(true)
+                            .ui(ui);
                         });
                     });
                 }
+            });
+    }
+
+    pub fn update(
+        &mut self,
+        ctx: &egui::Context,
+        is_open: &mut bool,
+        tx: tokio::sync::mpsc::Sender<AppEvent>,
+    ) {
+        egui::Window::new("Map Selection")
+            .default_width(480.0)
+            .default_height(480.0)
+            .open(is_open)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Filters > ");
+                    ui.label("Map: ");
+                    if ui.text_edit_singleline(&mut self.request.title).changed() {
+                        self.req_details_maps();
+                    }
+                    ui.label("Player: ");
+                    if ui.text_edit_singleline(&mut self.request.player).changed() {
+                        self.req_details_maps();
+                    }
+                    ui.label("File Path: ");
+                    if ui
+                        .text_edit_singleline(&mut self.request.file_name)
+                        .changed()
+                    {
+                        self.req_details_maps();
+                    }
+                    ui.label("File Hash: ");
+                    if ui
+                        .text_edit_singleline(&mut self.request.file_hash)
+                        .changed()
+                    {
+                        self.req_details_maps();
+                    }
+                    ui.label("Min date: ");
+                    if DatePickerButton::new(&mut self.request.file_min_date)
+                        .id_source("min_date")
+                        .ui(ui)
+                        .changed()
+                    {
+                        self.req_details_maps();
+                    }
+                    ui.label("Max date: ");
+                    if DatePickerButton::new(&mut self.request.file_max_date)
+                        .id_source("max_date")
+                        .ui(ui)
+                        .changed()
+                    {
+                        self.req_details_maps();
+                    }
+                });
+                let map_list: Vec<MapStats> = if let Some(map_list) = &self.map_list {
+                    if let Some(map_list) = map_list.ready() {
+                        map_list.data.clone()
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
+                self.request.file_min_date = map_list
+                    .iter()
+                    .map(|x| x.min_date.date())
+                    .min()
+                    .unwrap_or(ListDetailsMapReq::default_min_date());
+                self.request.file_max_date = map_list
+                    .iter()
+                    .map(|x| x.max_date.date())
+                    .max()
+                    .unwrap_or(ListDetailsMapReq::default_max_date());
+                self.table_div(ui, &map_list);
             });
     }
 }

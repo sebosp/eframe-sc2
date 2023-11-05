@@ -1,5 +1,8 @@
 //! Map count related queries
 
+use crate::app::AppEvent;
+use urlencoding::encode;
+
 pub mod ui;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -100,7 +103,7 @@ pub struct MapStats {
     pub max_date: chrono::NaiveDateTime,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct SC2MapPicker {
     /// A set of filters for the maps
@@ -111,13 +114,82 @@ pub struct SC2MapPicker {
     #[serde(skip)]
     map_list: Option<poll_promise::Promise<ListDetailsMapRes>>,
 
-    /// Wether the map selection is open
-    #[serde(skip)]
-    pub is_open_map_selection: bool,
-
     /// The selected map
     #[serde(skip)]
     pub selected_map: Option<String>,
+
+    /// The selected map
+    #[serde(skip)]
+    app_tx: tokio::sync::mpsc::Sender<AppEvent>,
+}
+
+impl Default for SC2MapPicker {
+    fn default() -> Self {
+        Self {
+            request: ListDetailsMapReq::default(),
+            map_list: None,
+            selected_map: None,
+            app_tx: tokio::sync::mpsc::channel(100).0,
+        }
+    }
+}
+
+impl SC2MapPicker {
+    /// Called once before the first frame.
+    pub fn new(app_tx: tokio::sync::mpsc::Sender<AppEvent>) -> Self {
+        Self {
+            request: ListDetailsMapReq::default(),
+            map_list: None,
+            selected_map: None,
+            app_tx,
+        }
+    }
+
+    async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
+        let mut query_params: Vec<String> = vec![];
+        query_params.push(format!("title={}", encode(&filters.title)));
+        query_params.push(format!("player={}", encode(&filters.player)));
+        query_params.push(format!("file_name={}", encode(&filters.file_name)));
+        query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
+        query_params.push(format!(
+            "file_min_date={}",
+            encode(&filters.file_min_date.to_string())
+        ));
+        query_params.push(format!(
+            "file_max_date={}",
+            encode(&filters.file_max_date.to_string())
+        ));
+        let query_url = format!("/api/v1/details/maps?{}", query_params.join("&"));
+        ehttp::fetch_async(ehttp::Request::get(query_url))
+            .await
+            .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
+            .unwrap_or_default()
+    }
+
+    /// Requests the async operation to get the details of the maps to the HTTP server.
+    pub fn req_details_maps(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            log::info!("Requesting details maps");
+            self.map_list = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
+                self.request.clone(),
+            )));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            tracing::info!("Requesting details maps");
+            self.map_list = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
+                self.request.clone(),
+            )));
+        }
+    }
+
+    /// Sets the selected map
+    pub fn set_selected_map(&mut self, map: String) {
+        self.app_tx
+            .try_send(AppEvent::SelectedMap(map))
+            .unwrap_or_default();
+    }
 }
 
 // test module

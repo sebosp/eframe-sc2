@@ -45,6 +45,7 @@ hyper = { version = "0.14.27", features = ["full"] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
 poll-promise = { version = "0.3", features = ["web"] } 
+tokio = { version = "1", features = [ "sync", "macros", "io-util", "rt", "time" ] }
 
 
 [profile.release]
