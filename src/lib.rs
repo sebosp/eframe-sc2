@@ -8,6 +8,7 @@ pub mod api;
 pub mod meta;
 
 pub const DETAILS_IPC: &str = "details.ipc";
+pub const UNIT_BORN_IPC: &str = "unit_born.ipc";
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cli;

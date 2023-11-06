@@ -2,6 +2,7 @@
 
 pub mod details;
 pub mod snapshot_stats;
+pub mod tracker_events;
 
 #[cfg(not(target_arch = "wasm32"))]
 use axum::{extract::State, routing::get, Router};

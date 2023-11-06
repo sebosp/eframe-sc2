@@ -60,6 +60,14 @@ pub async fn get_map_freq(
                     .contains_literal(lit(req.player.to_lowercase())),
             );
     }
+    let latest_replay_shas =
+        query
+            .clone()
+            .group_by([col("title")])
+            .agg([col("ext_fs_replay_sha256")
+                .last()
+                .alias("latest_replay_sha")]);
+
     let res = query
         .group_by([col("title")])
         .agg([
@@ -75,6 +83,12 @@ pub async fn get_map_freq(
                 .to_string("%Y-%m-%dT%H:%M:%S")
                 .alias("max_date"),
         ])
+        .join(
+            latest_replay_shas,
+            &[col("title")],
+            &[col("title")],
+            JoinArgs::new(JoinType::Inner),
+        )
         .sort(
             "count",
             SortOptions {

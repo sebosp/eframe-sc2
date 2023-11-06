@@ -32,10 +32,15 @@ impl SC2MapPicker {
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Column::auto())
             .column(Column::initial(100.0).at_least(40.0).clip(true))
-            .column(Column::auto())
+            .column(Column::initial(80.0).at_least(40.0).clip(true))
             .column(Column::auto())
             .column(Column::remainder())
             .min_scrolled_height(0.0);
+        let selected_map_title: String = if let Some(selected_map) = &self.selected_map {
+            selected_map.title.clone()
+        } else {
+            "".to_string()
+        };
 
         table
             .header(20.0, |mut header| {
@@ -43,13 +48,16 @@ impl SC2MapPicker {
                     ui.strong("Row");
                 });
                 header.col(|ui| {
-                    ui.strong("freq");
+                    ui.strong("Frequency");
                 });
                 header.col(|ui| {
-                    ui.strong("title");
+                    ui.strong("Map Title");
                 });
                 header.col(|ui| {
-                    ui.strong("Liquipedia link");
+                    ui.strong("Liquipedia Link");
+                });
+                header.col(|ui| {
+                    ui.strong("Top Players on Map");
                 });
             })
             .body(|mut body| {
@@ -59,7 +67,12 @@ impl SC2MapPicker {
                     body.row(row_height, |mut row| {
                         let map_ratio = map.count as f32 / max_games_on_map as f32;
                         row.col(|ui| {
-                            ui.label(idx.to_string());
+                            if selected_map_title == map.title {
+                                ui.strong(idx.to_string());
+                            } else if ui.button(idx.to_string()).clicked() {
+                                self.selected_map = Some(map.clone());
+                                ui.label(idx.to_string());
+                            }
                         });
                         row.col(|ui| {
                             // Create a bar that has the size of the total games divided by the current map count
@@ -69,8 +82,11 @@ impl SC2MapPicker {
                             ui.add(bar);
                         });
                         row.col(|ui| {
-                            if ui.label(map.title.clone()).clicked() {
-                                self.selected_map = Some(map.title.clone());
+                            if selected_map_title == map.title {
+                                ui.strong(&map.title);
+                            } else if ui.button(&map.title).clicked() {
+                                self.selected_map = Some(map.clone());
+                                ui.label(&map.title);
                             }
                         });
                         row.col(|ui| {

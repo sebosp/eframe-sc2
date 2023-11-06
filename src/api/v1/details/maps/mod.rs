@@ -101,6 +101,8 @@ pub struct MapStats {
     pub min_date: chrono::NaiveDateTime,
     /// The maximum date of the snapshot taken
     pub max_date: chrono::NaiveDateTime,
+    /// The latest sha256 hash of the map
+    pub latest_replay_sha: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -116,11 +118,7 @@ pub struct SC2MapPicker {
 
     /// The selected map
     #[serde(skip)]
-    pub selected_map: Option<String>,
-
-    /// The selected map
-    #[serde(skip)]
-    app_tx: tokio::sync::mpsc::Sender<AppEvent>,
+    pub selected_map: Option<MapStats>,
 }
 
 impl Default for SC2MapPicker {
@@ -129,19 +127,17 @@ impl Default for SC2MapPicker {
             request: ListDetailsMapReq::default(),
             map_list: None,
             selected_map: None,
-            app_tx: tokio::sync::mpsc::channel(100).0,
         }
     }
 }
 
 impl SC2MapPicker {
     /// Called once before the first frame.
-    pub fn new(app_tx: tokio::sync::mpsc::Sender<AppEvent>) -> Self {
+    pub fn new() -> Self {
         Self {
             request: ListDetailsMapReq::default(),
             map_list: None,
             selected_map: None,
-            app_tx,
         }
     }
 
@@ -183,13 +179,6 @@ impl SC2MapPicker {
             )));
         }
     }
-
-    /// Sets the selected map
-    pub fn set_selected_map(&mut self, map: String) {
-        self.app_tx
-            .try_send(AppEvent::SelectedMap(map))
-            .unwrap_or_default();
-    }
 }
 
 // test module
@@ -199,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_serde_map_stats() {
-        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852}"#;
+        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852, "latest_replay_sha": "whatevs"}"#;
         let example: MapStats = serde_json::from_str(example_str).unwrap();
         assert_eq!(
             example,
@@ -214,6 +203,7 @@ mod tests {
                     .unwrap()
                     .and_hms_milli_opt(15, 1, 38, 400)
                     .unwrap(),
+                latest_replay_sha: "whatevs".to_string(),
             }
         );
     }

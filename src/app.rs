@@ -2,6 +2,8 @@
 
 use crate::api::v1::details::maps::SC2MapPicker;
 use crate::api::v1::snapshot_stats::SnapshotStats;
+use crate::api::v1::tracker_events::UnitBornPosRes;
+use chrono::prelude::*;
 use eframe::egui;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -15,6 +17,10 @@ pub struct SC2ReplayExplorer {
     /// The Map selection UI
     #[serde(skip)]
     map_picker: SC2MapPicker,
+
+    /// The Map selection UI
+    #[serde(skip)]
+    units_born: UnitBornPosRes,
 
     /// A filter in the future
     #[serde(skip)]
@@ -53,8 +59,6 @@ pub struct SC2ReplayExplorer {
 pub enum AppEvent {
     /// Closes the map picker window
     CloseMapPicker,
-    /// Selects a specific Map by title
-    SelectedMap(String),
     /// Exits the main application
     Exit,
 }
@@ -63,7 +67,8 @@ impl Default for SC2ReplayExplorer {
     fn default() -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
         Self {
-            map_picker: SC2MapPicker::new(tx.clone()),
+            map_picker: SC2MapPicker::new(),
+            units_born: Default::default(),
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
@@ -90,6 +95,7 @@ impl SC2ReplayExplorer {
             Default::default()
         };
         app_state.map_picker.req_details_maps();
+        app_state.req_snapshot_stats();
         app_state
     }
 
@@ -98,13 +104,13 @@ impl SC2ReplayExplorer {
         #[cfg(target_arch = "wasm32")]
         {
             self.snapshot_stats = Some(poll_promise::Promise::spawn_local(
-                Self::load_snapshot_stats(),
+                Self::get_snapshot_stats(),
             ));
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.snapshot_stats = Some(poll_promise::Promise::spawn_async(
-                Self::load_snapshot_stats(),
+                Self::get_snapshot_stats(),
             ));
         }
     }
@@ -117,9 +123,6 @@ impl SC2ReplayExplorer {
                 match event {
                     AppEvent::CloseMapPicker => {
                         self.is_open_map_selection = false;
-                    }
-                    AppEvent::SelectedMap(map_title) => {
-                        self.map_picker.selected_map = Some(map_title);
                     }
                     AppEvent::Exit => {
                         break;
@@ -140,12 +143,28 @@ impl SC2ReplayExplorer {
     }
 
     /// Loads basic information about the analyzed metadata
-    async fn load_snapshot_stats() -> SnapshotStats {
+    async fn get_snapshot_stats() -> SnapshotStats {
         let request = ehttp::Request::get("/api/v1/snapshot_stats");
         ehttp::fetch_async(request)
             .await
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
             .unwrap_or_default()
+    }
+
+    /// Spawns the async operation to get the snapshot stats from the backend
+    fn req_snapshot_stats(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.snapshot_stats = Some(poll_promise::Promise::spawn_local(
+                Self::get_snapshot_stats(),
+            ));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.snapshot_stats = Some(poll_promise::Promise::spawn_async(
+                Self::get_snapshot_stats(),
+            ));
+        }
     }
 }
 
@@ -156,7 +175,13 @@ impl eframe::App for SC2ReplayExplorer {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(
+        &mut self,
+        ctx: &egui::Context,
+        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+        frame: &mut eframe::Frame,
+        #[cfg(target_arch = "wasm32")] _frame: &mut eframe::Frame,
+    ) {
         // Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
@@ -174,23 +199,24 @@ impl eframe::App for SC2ReplayExplorer {
                             frame.close();
                         }
                     }
+                    if ui.button("Open SC2Replay file").clicked() {
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            self.file_request_future =
+                                Some(poll_promise::Promise::spawn_local(Self::load_file()));
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            self.file_request_future =
+                                Some(poll_promise::Promise::spawn_async(Self::load_file()));
+                        }
+                    }
                 });
                 ui.add_space(16.0);
 
                 ui.horizontal(|ui| {
                     if ui.button("Reload Stats").clicked() {
-                        #[cfg(target_arch = "wasm32")]
-                        {
-                            self.snapshot_stats = Some(poll_promise::Promise::spawn_local(
-                                Self::load_snapshot_stats(),
-                            ));
-                        }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
-                            self.snapshot_stats = Some(poll_promise::Promise::spawn_async(
-                                Self::load_snapshot_stats(),
-                            ));
-                        }
+                        self.req_snapshot_stats();
                     }
                     if let Some(snapshot_stats) = &self.snapshot_stats {
                         if let Some(snapshot_stats) = snapshot_stats.ready() {
@@ -203,8 +229,15 @@ impl eframe::App for SC2ReplayExplorer {
                                 "Total players: {}",
                                 snapshot_stats.num_players
                             ));*/
-                            ui.label(format!("Directory Size: {}", snapshot_stats.directory_size));
-                            ui.label(format!("Snashot date: {:?}", snapshot_stats.date_modified));
+                            ui.label(format!(
+                                "Directory Size: {}",
+                                prefixed_unit(snapshot_stats.directory_size)
+                            ));
+                            let snapshot_date: DateTime<Utc> = snapshot_stats.date_modified.into();
+                            ui.label(format!(
+                                "Snapshot date: {}",
+                                snapshot_date.format("%Y-%m-%d %H:%M:%S")
+                            ));
                         } else {
                             ui.label("Loading snapshot metadata...");
                         }
@@ -222,27 +255,33 @@ impl eframe::App for SC2ReplayExplorer {
 
             ui.label("Drag-and-drop SC2Replay file onto the window!");
 
-            if ui.button("Open map selection").clicked() {
-                self.is_open_map_selection = !self.is_open_map_selection;
-            }
-            if ui.button("Open file...").clicked() {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    self.file_request_future =
-                        Some(poll_promise::Promise::spawn_local(Self::load_file()));
+            ui.horizontal(|ui| {
+                ui.label("Selected map: ");
+                ui.colored_label(
+                    self.map_picker
+                        .selected_map
+                        .as_ref()
+                        .map_or(egui::Color32::RED, |_| egui::Color32::GREEN),
+                    self.map_picker
+                        .selected_map
+                        .as_ref()
+                        .map_or("Unset", |map| &map.title),
+                );
+                let map_select_label = if self.map_picker.selected_map.is_some() {
+                    "Change Map"
+                } else {
+                    "Select Map"
+                };
+                if ui.button(map_select_label).clicked() {
+                    self.map_picker.selected_map = None;
+                    self.is_open_map_selection = true;
                 }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    self.file_request_future =
-                        Some(poll_promise::Promise::spawn_async(Self::load_file()));
-                }
-            }
 
-            let mut is_open_map_selection = self.is_open_map_selection;
-            self.map_picker
-                .update(ctx, &mut is_open_map_selection, self.tx.clone());
-            self.is_open_map_selection = is_open_map_selection;
-
+                let mut is_open_map_selection = self.is_open_map_selection;
+                self.map_picker
+                    .update(ctx, &mut is_open_map_selection, self.tx.clone());
+                self.is_open_map_selection = self.map_picker.selected_map.is_none();
+            });
             if let Some(file_async) = &self.file_request_future {
                 if let Some(Some(file_contents)) = file_async.ready() {
                     self.replay_details = match s2protocol::parser::parse(file_contents) {
@@ -287,23 +326,22 @@ impl eframe::App for SC2ReplayExplorer {
                 ui.label("Matching Replays: ");
             });
 
-            ui.add(egui::github_link_file!(
-                "https://github.com/sebosp/eframe-sc2/blob/master/",
-                "Source code."
-            ));
-
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
+                references_footer(ui);
                 egui::warn_if_debug_build(ui);
             });
         });
     }
 }
 
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
+fn references_footer(ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
+        ui.hyperlink_to(
+            "Source code",
+            "https://github.com/sebosp/eframe-sc2/blob/master/",
+        );
+        ui.label(". Powered by ");
         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
         ui.label(" and ");
         ui.hyperlink_to(
@@ -312,4 +350,16 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         );
         ui.label(".");
     });
+}
+
+/// Converts an input value into unit prefixed value, for example, 1000 to 1KB
+fn prefixed_unit(value: u64) -> String {
+    let prefixes = ["", "K", "M", "G", "T", "P", "E"];
+    let mut prefix_index = 0;
+    let mut value = value as f64;
+    while value > 1024.0 && prefix_index < prefixes.len() {
+        value /= 1024.0;
+        prefix_index += 1;
+    }
+    format!("{:0.2} {}Bs", value, prefixes[prefix_index])
 }
