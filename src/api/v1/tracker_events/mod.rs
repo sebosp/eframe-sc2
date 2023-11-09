@@ -6,6 +6,8 @@ pub mod dataframe;
 //#[cfg(not(target_arch = "wasm32"))]
 //pub mod server;
 
+pub mod ui;
+
 use serde::{Deserialize, Serialize};
 
 /// A query for the Position of the Unit Born TrackerEvents

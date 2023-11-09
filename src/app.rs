@@ -67,7 +67,7 @@ impl Default for SC2ReplayExplorer {
     fn default() -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
         Self {
-            map_picker: SC2MapPicker::new(),
+            map_picker: Default::default(),
             units_born: Default::default(),
             value: 2.7,
             dropped_files: Default::default(),

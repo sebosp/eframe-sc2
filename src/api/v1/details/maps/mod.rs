@@ -1,6 +1,5 @@
 //! Map count related queries
 
-use crate::app::AppEvent;
 use urlencoding::encode;
 
 pub mod ui;
@@ -105,7 +104,7 @@ pub struct MapStats {
     pub latest_replay_sha: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Deserialize, Serialize, Default)]
 #[serde(default)]
 pub struct SC2MapPicker {
     /// A set of filters for the maps
@@ -121,26 +120,7 @@ pub struct SC2MapPicker {
     pub selected_map: Option<MapStats>,
 }
 
-impl Default for SC2MapPicker {
-    fn default() -> Self {
-        Self {
-            request: ListDetailsMapReq::default(),
-            map_list: None,
-            selected_map: None,
-        }
-    }
-}
-
 impl SC2MapPicker {
-    /// Called once before the first frame.
-    pub fn new() -> Self {
-        Self {
-            request: ListDetailsMapReq::default(),
-            map_list: None,
-            selected_map: None,
-        }
-    }
-
     async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
         let mut query_params: Vec<String> = vec![];
         query_params.push(format!("title={}", encode(&filters.title)));
