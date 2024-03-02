@@ -57,7 +57,7 @@ impl SC2MapPicker {
                     ui.strong("Liquipedia Link");
                 });
                 header.col(|ui| {
-                    ui.strong("Top Players on Map");
+                    ui.strong("Top 3 Players on Map");
                 });
             })
             .body(|mut body| {
@@ -90,11 +90,9 @@ impl SC2MapPicker {
                             }
                         });
                         row.col(|ui| {
-                            // The map is underscare separated in the liquipedia link:
-                            let map_title = map.title.replace(' ', "_");
                             egui::Hyperlink::from_label_and_url(
-                                &map_title,
-                                format!("https://liquipedia.net/starcraft2/{}", map_title),
+                                map.clean_map_title(),
+                                map.liquipedia_map_link(),
                             )
                             .open_in_new_tab(true)
                             .ui(ui);

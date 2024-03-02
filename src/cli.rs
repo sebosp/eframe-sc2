@@ -48,8 +48,7 @@ pub async fn process_cli_request() -> Result<(), crate::error::Error> {
 
     if !cli.disable_native {
         let native_options = eframe::NativeOptions {
-            initial_window_size: Some([400.0, 300.0].into()),
-            min_window_size: Some([300.0, 220.0].into()),
+            viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
             ..Default::default()
         };
         eframe::run_native(

@@ -179,7 +179,7 @@ impl eframe::App for SC2ReplayExplorer {
         &mut self,
         ctx: &egui::Context,
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        frame: &mut eframe::Frame,
+        _frame: &mut eframe::Frame,
         #[cfg(target_arch = "wasm32")] _frame: &mut eframe::Frame,
     ) {
         // Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
@@ -196,7 +196,7 @@ impl eframe::App for SC2ReplayExplorer {
                     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     {
                         if ui.button("Quit").clicked() {
-                            frame.close();
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         }
                     }
                     if ui.button("Open SC2Replay file").clicked() {

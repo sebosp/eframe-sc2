@@ -21,7 +21,6 @@ pub async fn get_map_freq(
             .and(col("ext_datetime").lt(lit(req.file_max_date))),
     );
     if !req.title.is_empty() {
-        tracing::info!("Not empty title: {}", req.title);
         query = query.filter(
             col("title")
                 .str()
@@ -68,6 +67,13 @@ pub async fn get_map_freq(
                 .last()
                 .alias("latest_replay_sha")]);
 
+    let top_3_freq_players_per_map =
+        query
+            .clone()
+            .group_by([col("title")])
+            .agg([col("ext_fs_replay_sha256")
+                .last()
+                .alias("latest_replay_sha")]);
     let res = query
         .group_by([col("title")])
         .agg([

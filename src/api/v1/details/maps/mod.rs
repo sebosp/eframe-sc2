@@ -102,6 +102,69 @@ pub struct MapStats {
     pub max_date: chrono::NaiveDateTime,
     /// The latest sha256 hash of the map
     pub latest_replay_sha: String,
+    /// The top frequency players on this map
+    pub top_players: Vec<String>,
+}
+
+impl MapStats {
+    /// Creates a link to access the map info on the battle.net website
+    pub fn clean_map_title(&self) -> String {
+        // Sometimes the map contains "[ESL] ", specially in GSL tournament
+        // replays. This is not present in the liquipedia link and must be
+        // removed.
+        let map_title = self.title.replace("[ESL] ", "");
+        // The map is underscare separated in the liquipedia link:
+        map_title.replace(' ', "_")
+    }
+
+    pub fn liquipedia_map_link(&self) -> String {
+        format!(
+            "https://liquipedia.net/starcraft2/{}",
+            encode(&self.clean_map_title())
+        )
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct PlayerStats {
+    /// The region of the player
+    pub region: u8,
+    /// The realm of the player
+    pub realm: u32,
+    /// The id of the player
+    pub id: u64,
+    /// The clan of the player
+    pub clan: Option<String>,
+    /// The name of the player
+    pub name: String,
+    /// The amount of replays on this map
+    pub count: u32,
+    /// The number of wins on this map
+    pub wins: u32,
+    /// The number of losses on this map
+    pub losses: u32,
+}
+
+impl PlayerStats {
+    /// Creates a link to access the player info on the battle.net website
+    pub fn blizzard_profile_link(&self) -> String {
+        format!(
+            "https://starcraft2.blizzard.com/en-us/profile/{}/{}/{}",
+            self.region, self.realm, self.id
+        )
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct RaceStats {
+    /// The race of the player, zerg, protoss or terran
+    pub race: String,
+    /// The amount of replays on this map
+    pub count: u32,
+    /// The number of wins on this map
+    pub wins: u32,
+    /// The number of losses on this map
+    pub losses: u32,
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -168,7 +231,8 @@ mod tests {
 
     #[test]
     fn test_serde_map_stats() {
-        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852, "latest_replay_sha": "whatevs"}"#;
+        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852, "latest_replay_sha": "whatevs",
+    top_players: ["Sazed", "Paramtamtam"]}"#;
         let example: MapStats = serde_json::from_str(example_str).unwrap();
         assert_eq!(
             example,
@@ -184,6 +248,7 @@ mod tests {
                     .and_hms_milli_opt(15, 1, 38, 400)
                     .unwrap(),
                 latest_replay_sha: "whatevs".to_string(),
+                top_players: vec!["Sazed".to_string(), "Paramtamtam".to_string()],
             }
         );
     }
