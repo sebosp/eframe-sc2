@@ -1,4 +1,5 @@
 use clap::Parser;
+use eframe::egui;
 use tokio::signal;
 
 #[derive(Parser)]
@@ -54,7 +55,7 @@ pub async fn process_cli_request() -> Result<(), crate::error::Error> {
         eframe::run_native(
             "eframe sc2",
             native_options,
-            Box::new(|cc| Box::new(crate::SC2ReplayExplorer::new(cc))),
+            Box::new(|cc| Ok(Box::new(crate::SC2ReplayExplorer::new(cc)))),
         )
         .unwrap();
     }

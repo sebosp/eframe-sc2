@@ -14,7 +14,7 @@ The frontend may run as native or in the browser. It should interact with the ba
 ## Running the backend (axum)
 
 ```
-$ cargo watch -x clippy -x 'run -- --source-dir $HOME/git/s2protocol-rs/ipcs/ -d -v debug'
+$ cargo watch -x clippy -x "run -- --source-dir $HOME/git/s2protocol-rs/ipcs/ -d -v debug"
 ```
 
 This serves the front end as static files, the intention is to proxy the frontend as well so that it can avoid CORS issues.

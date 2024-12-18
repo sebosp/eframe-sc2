@@ -1,16 +1,21 @@
 //! HTTP server, routes and proxy
 
 use axum::{
-    body::{self, boxed, Body, BoxBody},
+    body::Body,
     extract::ws::{WebSocket, WebSocketUpgrade},
-    http::{Method, Request, StatusCode, Uri},
+    http::{Method, Request, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     routing::Router,
 };
+use hyper::body::Incoming;
+use hyper::server::conn::http1;
 use hyper::upgrade::Upgraded;
+use hyper_util::rt::TokioIo;
+use std::net::SocketAddr;
 use tokio::net::TcpStream;
-use tower::{make::Shared, ServiceExt};
+use tower::Service;
+use tower::ServiceExt;
 use tower_http::services::ServeDir;
 use tower_http::trace::{self, TraceLayer};
 use tracing::Level;
@@ -28,43 +33,60 @@ pub async fn start_server(cli: &crate::cli::Cli) {
     let source_dir = cli.source_dir.clone();
     tracing::info!("Starting server on {}:{}", ip, port);
     // Start a backend thread to serve requests
-    tokio::spawn(async move {
-        let shared_state = AppState { source_dir };
-        let router_svc = Router::new()
-            .layer(
-                TraceLayer::new_for_http()
-                    .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
-                    .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
-            )
-            .nest(
-                "/api",
-                crate::api::routes(axum::extract::State(shared_state.clone())),
-            )
-            .route("/_trunk/ws", get(web_socket_handler))
-            .nest_service("/", get(static_dir_handler));
+    let shared_state = AppState { source_dir };
+    let router_svc = Router::new()
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
+        )
+        .with_state(shared_state.clone())
+        .nest(
+            "/api",
+            crate::api::routes(axum::extract::State(shared_state.clone())),
+        )
+        .route("/_trunk/ws", get(web_socket_handler))
+        .nest_service("/", ServeDir::new("dist"));
 
-        let proxy_service = tower::service_fn(move |req: Request<Body>| {
-            let router_svc = router_svc.clone();
-            async move {
-                if req.method() == Method::CONNECT {
-                    proxy(req).await
-                } else {
-                    router_svc.oneshot(req).await.map_err(|err| match err {})
-                }
+    // From axum/examples/http-proxy/src/main.rs
+    let tower_service = tower::service_fn(move |req: Request<_>| {
+        let router_svc = router_svc.clone();
+        let req = req.map(Body::new);
+        async move {
+            if req.method() == Method::CONNECT {
+                proxy(req).await
+            } else {
+                router_svc.oneshot(req).await.map_err(|err| match err {})
+            }
+        }
+    });
+
+    let hyper_service = hyper::service::service_fn(move |request: Request<Incoming>| {
+        tower_service.clone().call(request)
+    });
+
+    let addr: SocketAddr = format!("{}:{}", ip, port)
+        .parse()
+        .expect("Invalid IP address");
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+
+    loop {
+        let (stream, _) = listener.accept().await.unwrap();
+        let io = TokioIo::new(stream);
+        let hyper_service = hyper_service.clone();
+        tokio::task::spawn(async move {
+            if let Err(err) = http1::Builder::new()
+                .preserve_header_case(true)
+                .title_case_headers(true)
+                .serve_connection(io, hyper_service)
+                .with_upgrades()
+                .await
+            {
+                println!("Failed to serve connection: {:?}", err);
             }
         });
-
-        axum::Server::bind(
-            &format!("{}:{}", ip, port)
-                .parse()
-                .expect("Invalid IP address"),
-        )
-        .http1_preserve_header_case(true)
-        .http1_title_case_headers(true)
-        .serve(Shared::new(proxy_service))
-        .await
-        .unwrap();
-    });
+    }
 }
 
 async fn web_socket_handler(ws: WebSocketUpgrade) -> Response {
@@ -87,29 +109,6 @@ async fn handle_socket(mut socket: WebSocket) {
     }
 }
 
-async fn static_dir_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
-    let res = get_static_file(uri.clone()).await?;
-
-    if res.status() == StatusCode::NOT_FOUND {
-        get_static_file(uri).await
-    } else {
-        Ok(res)
-    }
-}
-
-async fn get_static_file(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
-    let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
-
-    // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
-    match ServeDir::new("./dist/").oneshot(req).await {
-        Ok(res) => Ok(res.map(boxed)),
-        Err(err) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", err),
-        )),
-    }
-}
-
 async fn proxy(req: Request<Body>) -> Result<Response, hyper::Error> {
     tracing::trace!(?req);
 
@@ -125,7 +124,7 @@ async fn proxy(req: Request<Body>) -> Result<Response, hyper::Error> {
             }
         });
 
-        Ok(Response::new(body::boxed(body::Empty::new())))
+        Ok(Response::new(axum::body::Body::empty()))
     } else {
         tracing::warn!("CONNECT host is not socket addr: {:?}", req.uri());
         Ok((
@@ -136,8 +135,10 @@ async fn proxy(req: Request<Body>) -> Result<Response, hyper::Error> {
     }
 }
 
-async fn tunnel(mut upgraded: Upgraded, addr: String) -> std::io::Result<()> {
+// From axum/examples/http-proxy/src/main.rs
+async fn tunnel(upgraded: Upgraded, addr: String) -> std::io::Result<()> {
     let mut server = TcpStream::connect(addr).await?;
+    let mut upgraded = TokioIo::new(upgraded);
 
     let (from_client, from_server) =
         tokio::io::copy_bidirectional(&mut upgraded, &mut server).await?;
