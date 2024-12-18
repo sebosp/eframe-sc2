@@ -47,6 +47,30 @@ pub async fn get_map_freq(
                 .contains_literal(lit(req.file_hash.to_lowercase())),
         );
     }
+    let map_players_freq = query
+        .clone()
+        .explode(["player_list"])
+        .unnest(["player_list"])
+        .with_columns(vec![col("name")
+            .str()
+            .split(lit("<sp/>"))
+            .list()
+            .last()
+            .alias("player_name")])
+        .group_by([col("title")])
+        .agg([col("player_name")
+            .value_counts(true, true, "counts", true)
+            .struct_()
+            .field_by_index(0)
+            .head(Some(5))
+            .alias("top_players")])
+        .sort(
+            ["title"],
+            SortMultipleOptions {
+                descending: vec![true],
+                ..Default::default()
+            },
+        );
     if !req.player.is_empty() {
         query = query
             .explode(["player_list"])
@@ -60,14 +84,6 @@ pub async fn get_map_freq(
             );
     }
     let latest_replay_shas =
-        query
-            .clone()
-            .group_by([col("title")])
-            .agg([col("ext_fs_replay_sha256")
-                .last()
-                .alias("latest_replay_sha")]);
-
-    let top_3_freq_players_per_map =
         query
             .clone()
             .group_by([col("title")])
@@ -95,10 +111,16 @@ pub async fn get_map_freq(
             &[col("title")],
             JoinArgs::new(JoinType::Inner),
         )
+        .join(
+            map_players_freq,
+            &[col("title")],
+            &[col("title")],
+            JoinArgs::new(JoinType::Inner),
+        )
         .sort(
-            "count",
-            SortOptions {
-                descending: true,
+            ["count"],
+            SortMultipleOptions {
+                descending: vec![true],
                 ..Default::default()
             },
         )

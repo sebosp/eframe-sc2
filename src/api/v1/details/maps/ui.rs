@@ -57,7 +57,7 @@ impl SC2MapPicker {
                     ui.strong("Liquipedia Link");
                 });
                 header.col(|ui| {
-                    ui.strong("Top 3 Players on Map");
+                    ui.strong("Top 5 Players on Map");
                 });
             })
             .body(|mut body| {
@@ -96,6 +96,9 @@ impl SC2MapPicker {
                             )
                             .open_in_new_tab(true)
                             .ui(ui);
+                        });
+                        row.col(|ui| {
+                            ui.label(map.top_players.join(", "));
                         });
                     });
                 }

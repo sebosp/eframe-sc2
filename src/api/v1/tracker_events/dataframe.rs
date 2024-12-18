@@ -61,9 +61,9 @@ pub async fn get_map_freq(
             col("ext_replay_loop"),
         ])
         .sort(
-            "ext_replay_loop",
-            SortOptions {
-                descending: true,
+            ["ext_replay_loop"],
+            SortMultipleOptions {
+                descending: vec![true],
                 ..Default::default()
             },
         )
