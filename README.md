@@ -22,7 +22,7 @@ This serves the front end as static files, the intention is to proxy the fronten
 ## Running the frontend for development (trunk)
 
 ```
-$ trunk serve --address 0.0.0.0 --proxy-insecure --proxy-backend http://$hostname:3000/ -v
+$ trunk serve --address 0.0.0.0 --proxy-insecure --proxy-backend http://$hostname:3000/api/
 ```
 
 This allows running requests from the frontend (wasm) to the backend over the same host:port, avoiding CORS related issues.
