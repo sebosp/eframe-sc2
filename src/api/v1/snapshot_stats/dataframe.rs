@@ -23,5 +23,6 @@ pub async fn get_metadata(state: AppState) -> Result<SnapshotStats, crate::error
         directory_size,
         date_modified,
         meta: meta.build(),
+        directory: state.source_dir.clone(),
     })
 }

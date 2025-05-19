@@ -6,8 +6,8 @@ edition = "2021"
 rust-version = "1.83"
 
 [dependencies]
-egui = { version = "0.29", features = ["mint", "log"] }
-eframe = { version = "0.29", default-features = false, features = [
+egui = { version = "0.31", features = ["mint", "log"] }
+eframe = { version = "0.31", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -16,8 +16,8 @@ eframe = { version = "0.29", default-features = false, features = [
 log = "0.4"
 s2protocol = { path = "../s2protocol-rs", features = ["arrow"] }
 rfd = "0.15"
-egui_plot = "0.29"
-egui_extras = { version = "0.29", features = ["puffin", "datepicker", "serde"] }
+egui_plot = "0.31"
+egui_extras = { version = "0.31", features = ["datepicker", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.91"
 ehttp = { version = "0.5", features = ["native-async"] }

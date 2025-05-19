@@ -20,6 +20,7 @@ pub async fn route_snapshot_stats(
                     meta: meta.with_error(e.to_string()).build(),
                     directory_size: 0,
                     date_modified: SystemTime::UNIX_EPOCH,
+                    directory: String::new(),
                 }),
             )
         }

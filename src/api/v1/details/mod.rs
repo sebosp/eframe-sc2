@@ -1,6 +1,7 @@
 //! Details query API
 
 pub mod maps;
+pub mod players;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::server::AppState;
@@ -12,5 +13,6 @@ use axum::{extract::State, routing::get, Router};
 pub fn routes(state: State<AppState>) -> Router {
     Router::new()
         .route("/maps", get(maps::server::route_query_maps))
+        .route("/players", get(players::server::route_query_players))
         .with_state(state.0)
 }

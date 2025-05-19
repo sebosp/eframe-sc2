@@ -1,31 +1,31 @@
-//! Contains the UI for the map frequency table.
+//! Contains the UI for the player frequency table.
 
 use crate::app::AppEvent;
 
-use super::MapStats;
-use super::{ListDetailsMapReq, SC2MapPicker};
+use super::PlayerStats;
+use super::{ListDetailsPlayerReq, SC2PlayerPicker};
 use eframe::egui;
 use egui::Ui;
 use egui::Widget;
 use egui_extras::{Column, DatePickerButton, TableBuilder};
 
-impl SC2MapPicker {
-    /// Builds a portion of the UI to be used for the Maps table.
-    fn table_div(&mut self, ui: &mut Ui, maps: &[MapStats]) {
+impl SC2PlayerPicker {
+    /// Builds a portion of the UI to be used for the Players table.
+    fn table_div(&mut self, ui: &mut Ui, players: &[PlayerStats]) {
         ui.vertical(|ui| {
-            ui.heading("Maps");
+            ui.heading("Players");
             ui.separator();
             ui.allocate_ui(
                 egui::Vec2::new(ui.available_width(), ui.available_height() * 0.5),
                 |ui| {
-                    self.table_inner(ui, maps);
+                    self.table_inner(ui, players);
                 },
             );
         });
     }
 
-    /// Builds a table for egui with basic map information.
-    fn table_inner(&mut self, ui: &mut Ui, maps: &[MapStats]) {
+    /// Builds a table for egui with basic players information.
+    fn table_inner(&mut self, ui: &mut Ui, players: &[PlayerStats]) {
         let table = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
@@ -36,8 +36,8 @@ impl SC2MapPicker {
             .column(Column::auto())
             .column(Column::remainder())
             .min_scrolled_height(0.0);
-        let selected_map_title: String = if let Some(selected_map) = &self.selected_map {
-            selected_map.title.clone()
+        let selected_player_name: String = if let Some(player) = &self.selected_player {
+            player.name.clone()
         } else {
             "".to_string()
         };
@@ -51,54 +51,54 @@ impl SC2MapPicker {
                     ui.strong("Frequency");
                 });
                 header.col(|ui| {
-                    ui.strong("Map Title");
+                    ui.strong("Player Name");
                 });
                 header.col(|ui| {
-                    ui.strong("Liquipedia Link");
+                    ui.strong("Blizzard.com Link");
                 });
                 header.col(|ui| {
-                    ui.strong("Top 5 Players on Map");
+                    ui.strong("Top 5 Maps for player");
                 });
             })
             .body(|mut body| {
-                let max_games_on_map = maps.iter().map(|x| x.count).max().unwrap_or(0);
-                for (idx, map) in maps.iter().enumerate() {
+                let max_games_on_player = players.iter().map(|x| x.count).max().unwrap_or(0);
+                for (idx, player) in players.iter().enumerate() {
                     let row_height = 18.0;
                     body.row(row_height, |mut row| {
-                        let map_ratio = map.count as f32 / max_games_on_map as f32;
+                        let map_ratio = player.count as f32 / max_games_on_player as f32;
                         row.col(|ui| {
-                            if selected_map_title == map.title {
+                            if selected_player_name == player.name {
                                 ui.strong(idx.to_string());
                             } else if ui.button(idx.to_string()).clicked() {
-                                self.selected_map = Some(map.clone());
+                                self.selected_player = Some(player.clone());
                                 ui.label(idx.to_string());
                             }
                         });
                         row.col(|ui| {
-                            // Create a bar that has the size of the total games divided by the current map count
+                            // Create a bar that has the size of the total games divided by the current player count
                             let bar = egui::ProgressBar::new(map_ratio)
                                 .desired_width(ui.available_width())
-                                .text(map.count.to_string());
+                                .text(player.count.to_string());
                             ui.add(bar);
                         });
                         row.col(|ui| {
-                            if selected_map_title == map.title {
-                                ui.strong(&map.title);
-                            } else if ui.button(&map.title).clicked() {
-                                self.selected_map = Some(map.clone());
-                                ui.label(&map.title);
+                            if selected_player_name == player.name {
+                                ui.strong(&player.name);
+                            } else if ui.button(&player.name).clicked() {
+                                self.selected_player = Some(player.clone());
+                                ui.label(&player.name);
                             }
                         });
                         row.col(|ui| {
                             egui::Hyperlink::from_label_and_url(
-                                map.clean_map_title(),
-                                map.liquipedia_map_link(),
+                                player.blizzard_profile_link_title(),
+                                player.blizzard_profile_link_href(),
                             )
                             .open_in_new_tab(true)
                             .ui(ui);
                         });
                         row.col(|ui| {
-                            ui.label(map.top_players.join(", "));
+                            ui.label(player.top_maps.join(", "));
                         });
                     });
                 }
@@ -111,34 +111,30 @@ impl SC2MapPicker {
         is_open: &mut bool,
         _tx: tokio::sync::mpsc::Sender<AppEvent>,
     ) {
-        egui::Window::new("Map Selection")
+        egui::Window::new("Player Selection")
             .default_width(480.0)
             .default_height(480.0)
             .open(is_open)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Filters > ");
-                    ui.label("Map: ");
-                    if ui.text_edit_singleline(&mut self.request.title).changed() {
-                        self.req_details_maps();
-                    }
                     ui.label("Player: ");
-                    if ui.text_edit_singleline(&mut self.request.player).changed() {
-                        self.req_details_maps();
+                    if ui.text_edit_singleline(&mut self.request.name).changed() {
+                        self.req_details_players();
                     }
                     ui.label("File Path: ");
                     if ui
                         .text_edit_singleline(&mut self.request.file_name)
                         .changed()
                     {
-                        self.req_details_maps();
+                        self.req_details_players();
                     }
                     ui.label("File Hash: ");
                     if ui
                         .text_edit_singleline(&mut self.request.file_hash)
                         .changed()
                     {
-                        self.req_details_maps();
+                        self.req_details_players();
                     }
                     ui.label("Min date: ");
                     if DatePickerButton::new(&mut self.request.file_min_date)
@@ -146,7 +142,7 @@ impl SC2MapPicker {
                         .ui(ui)
                         .changed()
                     {
-                        self.req_details_maps();
+                        self.req_details_players();
                     }
                     ui.label("Max date: ");
                     if DatePickerButton::new(&mut self.request.file_max_date)
@@ -154,29 +150,29 @@ impl SC2MapPicker {
                         .ui(ui)
                         .changed()
                     {
-                        self.req_details_maps();
+                        self.req_details_players();
                     }
                 });
-                let map_list: Vec<MapStats> = if let Some(map_list) = &self.map_list {
-                    if let Some(map_list) = map_list.ready() {
-                        map_list.data.clone()
+                let player_list: Vec<PlayerStats> = if let Some(player_list) = &self.player_list {
+                    if let Some(player_list) = player_list.ready() {
+                        player_list.data.clone()
                     } else {
                         vec![]
                     }
                 } else {
                     vec![]
                 };
-                self.request.file_min_date = map_list
+                self.request.file_min_date = player_list
                     .iter()
                     .map(|x| x.min_date.date())
                     .min()
-                    .unwrap_or(ListDetailsMapReq::default_min_date());
-                self.request.file_max_date = map_list
+                    .unwrap_or(ListDetailsPlayerReq::default_min_date());
+                self.request.file_max_date = player_list
                     .iter()
                     .map(|x| x.max_date.date())
                     .max()
-                    .unwrap_or(ListDetailsMapReq::default_max_date());
-                self.table_div(ui, &map_list);
+                    .unwrap_or(ListDetailsPlayerReq::default_max_date());
+                self.table_div(ui, &player_list);
             });
     }
 }
