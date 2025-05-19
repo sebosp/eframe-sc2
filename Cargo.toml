@@ -3,15 +3,17 @@ name = "eframe_sc2"
 version = "0.1.0"
 authors = ["Seb Ospina <kraige@gmail.com>"]
 edition = "2021"
-rust-version = "1.83"
+rust-version = "1.81"
 
 [dependencies]
-egui = { version = "0.31", features = ["mint", "log"] }
+egui = "0.31"
 eframe = { version = "0.31", default-features = false, features = [
-    "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
+    "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
+    "wayland",       # To support Linux (and CI)
+    "x11",           # To support older Linux distributions (restores one of the default features)
 ] }
 log = "0.4"
 s2protocol = { path = "../s2protocol-rs", features = ["arrow"] }
