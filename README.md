@@ -5,11 +5,13 @@
 
 This is a repo based on [eframe](https://github.com/emilk/egui/tree/master/crates/eframe), a framework for writing apps using [egui](https://github.com/emilk/egui/).
 
-In this repo there is a backend and a front-end.
+Current status:
+![Example screenshot](https://user-images.githubusercontent.com/873436/231281746-40fde3f1-fec6-49fe-8cf1-5fbd197589b7.png)
+
 The backend runs as web server with axum and tokio.
 It receives requests to interact with the polars datasets and serves HTML.
 
-The frontend may run as native or in the browser. It should interact with the backend.
+The frontend may run as native or in the browser, the eframe application interacts with the backend to pull information.
 
 ## Running the backend (axum)
 
