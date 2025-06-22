@@ -270,29 +270,29 @@ impl eframe::App for SC2ReplayExplorer {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("SC2Replays Batch Analyser");
 
-            ui.label("Drag-and-drop SC2Replay file onto the window!");
+            //ui.label("Drag-and-drop SC2Replay file onto the window!");
 
             ui.horizontal(|ui| {
-                ui.label("Selected map: ");
+                ui.label("Select map: ");
                 ui.colored_label(
                     self.map_picker
                         .selected_map
                         .as_ref()
-                        .map_or(egui::Color32::RED, |_| egui::Color32::GREEN),
+                        .map_or(egui::Color32::ORANGE, |_| egui::Color32::GREEN),
                     self.map_picker
                         .selected_map
                         .as_ref()
                         .map_or("Unset", |map| &map.title),
                 );
                 let map_select_label = if self.map_picker.selected_map.is_some() {
-                    "Change Map"
+                    "Change"
                 } else {
-                    "Select Map"
+                    "Open Map Selection"
                 };
                 let player_select_label = if self.player_picker.selected_player.is_some() {
-                    "Change Player"
+                    "Change"
                 } else {
-                    "Select Player"
+                    "Open Player Selection"
                 };
                 if ui.button(map_select_label).clicked() {
                     self.map_picker.selected_map = None;
