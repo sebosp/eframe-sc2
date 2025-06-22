@@ -1,6 +1,7 @@
 //! Main app
 
 use crate::api::v1::details::maps::SC2MapPicker;
+use crate::api::v1::details::players::SC2PlayerPicker;
 use crate::api::v1::snapshot_stats::SnapshotStats;
 use crate::api::v1::tracker_events::UnitBornPosRes;
 use chrono::prelude::*;
@@ -17,6 +18,10 @@ pub struct SC2ReplayExplorer {
     /// The Map selection UI
     #[serde(skip)]
     map_picker: SC2MapPicker,
+
+    /// The Player selection UI
+    #[serde(skip)]
+    player_picker: SC2PlayerPicker,
 
     /// The Map selection UI
     #[serde(skip)]
@@ -47,6 +52,10 @@ pub struct SC2ReplayExplorer {
     #[serde(skip)]
     pub is_open_map_selection: bool,
 
+    /// Wether the map selection is open
+    #[serde(skip)]
+    pub is_open_player_selection: bool,
+
     /// A control channel handle for the different elements
     #[serde(skip)]
     tx: tokio::sync::mpsc::Sender<AppEvent>,
@@ -59,6 +68,8 @@ pub struct SC2ReplayExplorer {
 pub enum AppEvent {
     /// Closes the map picker window
     CloseMapPicker,
+    /// Closes the playerc picker window
+    ClosePlayerPicker,
     /// Exits the main application
     Exit,
 }
@@ -67,16 +78,18 @@ impl Default for SC2ReplayExplorer {
     fn default() -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
         Self {
+            snapshot_stats: None,
             map_picker: Default::default(),
+            player_picker: Default::default(),
             units_born: Default::default(),
             value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
-            snapshot_stats: Default::default(),
             file_request_future: None,
             replay_details: None,
             replay_details_status_color: egui::Color32::GREEN,
             is_open_map_selection: false,
+            is_open_player_selection: false,
             tx,
             rx,
         }
@@ -95,6 +108,7 @@ impl SC2ReplayExplorer {
             Default::default()
         };
         app_state.map_picker.req_details_maps();
+        app_state.player_picker.req_details_players();
         app_state.req_snapshot_stats();
         app_state
     }
@@ -123,6 +137,9 @@ impl SC2ReplayExplorer {
                 match event {
                     AppEvent::CloseMapPicker => {
                         self.is_open_map_selection = false;
+                    }
+                    AppEvent::ClosePlayerPicker => {
+                        self.is_open_player_selection = false;
                     }
                     AppEvent::Exit => {
                         break;
@@ -253,34 +270,47 @@ impl eframe::App for SC2ReplayExplorer {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("SC2Replays Batch Analyser");
 
-            ui.label("Drag-and-drop SC2Replay file onto the window!");
+            //ui.label("Drag-and-drop SC2Replay file onto the window!");
 
             ui.horizontal(|ui| {
-                ui.label("Selected map: ");
+                ui.label("Select map: ");
                 ui.colored_label(
                     self.map_picker
                         .selected_map
                         .as_ref()
-                        .map_or(egui::Color32::RED, |_| egui::Color32::GREEN),
+                        .map_or(egui::Color32::ORANGE, |_| egui::Color32::GREEN),
                     self.map_picker
                         .selected_map
                         .as_ref()
                         .map_or("Unset", |map| &map.title),
                 );
                 let map_select_label = if self.map_picker.selected_map.is_some() {
-                    "Change Map"
+                    "Change"
                 } else {
-                    "Select Map"
+                    "Open Map Selection"
+                };
+                let player_select_label = if self.player_picker.selected_player.is_some() {
+                    "Change"
+                } else {
+                    "Open Player Selection"
                 };
                 if ui.button(map_select_label).clicked() {
                     self.map_picker.selected_map = None;
                     self.is_open_map_selection = true;
+                }
+                if ui.button(player_select_label).clicked() {
+                    self.player_picker.selected_player = None;
+                    self.is_open_player_selection = true;
                 }
 
                 let mut is_open_map_selection = self.is_open_map_selection;
                 self.map_picker
                     .update(ctx, &mut is_open_map_selection, self.tx.clone());
                 self.is_open_map_selection = self.map_picker.selected_map.is_none();
+                let mut is_open_player_selection = self.is_open_player_selection;
+                self.player_picker
+                    .update(ctx, &mut is_open_player_selection, self.tx.clone());
+                self.is_open_player_selection = self.player_picker.selected_player.is_none();
             });
             if let Some(file_async) = &self.file_request_future {
                 if let Some(Some(file_contents)) = file_async.ready() {

@@ -1,5 +1,6 @@
-//! Map count related queries
-
+//! Player count related queries
+//!
+use s2protocol::details::ToonNameDetails;
 use urlencoding::encode;
 
 pub mod ui;
@@ -12,15 +13,12 @@ pub mod server;
 
 use serde::{Deserialize, Serialize};
 
-/// Basic query request available for filtering replay maps
+/// Basic query request available for filtering replay players
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ListDetailsMapReq {
-    /// The title of the map
-    #[serde(default)]
-    pub title: String,
+pub struct ListDetailsPlayerReq {
     /// A player that must have played in the game
     #[serde(default)]
-    pub player: String,
+    pub name: String,
     /// Part of the file name
     #[serde(default)]
     pub file_name: String,
@@ -35,11 +33,10 @@ pub struct ListDetailsMapReq {
     pub file_max_date: chrono::NaiveDate,
 }
 
-impl Default for ListDetailsMapReq {
+impl Default for ListDetailsPlayerReq {
     fn default() -> Self {
         Self {
-            title: Default::default(),
-            player: Default::default(),
+            name: Default::default(),
             file_name: Default::default(),
             file_hash: Default::default(),
             file_min_date: Self::default_min_date(),
@@ -48,14 +45,11 @@ impl Default for ListDetailsMapReq {
     }
 }
 
-impl ListDetailsMapReq {
+impl ListDetailsPlayerReq {
     /// Returns a new instance of the request with the unescaped values
     pub fn from_escaped(self) -> Self {
         Self {
-            title: urlencoding::decode(&self.title)
-                .unwrap_or_default()
-                .to_string(),
-            player: urlencoding::decode(&self.player)
+            name: urlencoding::decode(&self.name)
                 .unwrap_or_default()
                 .to_string(),
             file_name: urlencoding::decode(&self.file_name)
@@ -80,84 +74,90 @@ impl ListDetailsMapReq {
     }
 }
 
-/// Basic query response available for filtering replay maps
+/// Basic query response available for filtering replay players
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct ListDetailsMapRes {
+pub struct ListDetailsPlayerRes {
     /// Metadata of the response
     pub meta: crate::meta::ResponseMeta,
     /// The data of the response
-    pub data: Vec<MapStats>,
+    pub data: Vec<PlayerStats>,
 }
 
-/// Basic response for map frequency
+/// Basic response for playper frequency
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct MapStats {
-    /// Teh name of the map
-    pub title: String,
-    /// The amount of replays on this map
+pub struct PlayerStats {
+    /// The clan of the player
+    pub clan: Option<String>,
+    /// The name of the player
+    #[serde(rename = "player_name")]
+    pub name: String,
+    /// The amount of replays for this player
     pub count: u32,
     /// The minimum date of the snapshot taken
     pub min_date: chrono::NaiveDateTime,
     /// The maximum date of the snapshot taken
     pub max_date: chrono::NaiveDateTime,
-    /// The latest sha256 hash of the map
+    /// The latest sha256 hash of the player
     pub latest_replay_sha: String,
-    /// The top frequency players on this map
-    pub top_players: Vec<String>,
+    /// The top frequency maps for this player
+    pub top_maps: Vec<String>,
+    /// The race stats
+    #[serde(skip)]
+    pub race_stats: Vec<PlayerRaceStats>,
+    /// Toon related information
+    pub toon: ToonNameDetails,
 }
 
-impl MapStats {
-    /// Creates a link to access the map info on the battle.net website
-    pub fn clean_map_title(&self) -> String {
-        // Sometimes the map contains "[ESL] ", specially in GSL tournament
-        // replays. This is not present in the liquipedia link and must be
-        // removed.
-        let map_title = self.title.replace("[ESL] ", "");
-        // The map is underscare separated in the liquipedia link:
-        map_title.replace(' ', "_")
-    }
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct PlayerRaceStats {
+    /// The race played, zerg, protoss or terran
+    pub race: u8,
+    /// The amount of replays on the local snapshot
+    pub count: u32,
+    /// The number of wins on this race for this player
+    pub wins: u32,
+    /// The number of defeats for this player
+    pub defeats: u32,
+    /// The number of undecided on this race for this player
+    pub undecided: u32,
+    /// The number of ties on this race for this player
+    pub ties: u32,
+}
 
-    pub fn liquipedia_map_link(&self) -> String {
+impl PlayerStats {
+    /// A visible label for the player blizzard link
+    pub fn blizzard_profile_link_title(&self) -> String {
+        format!("{}/{}/{}", self.toon.region, self.toon.realm, self.toon.id)
+    }
+    /// Creates a link to access the player info on the battle.net website
+    pub fn blizzard_profile_link_href(&self) -> String {
         format!(
-            "https://liquipedia.net/starcraft2/{}",
-            encode(&self.clean_map_title())
+            "https://starcraft2.blizzard.com/en-us/profile/{}/{}/{}",
+            self.toon.region, self.toon.realm, self.toon.id
         )
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct RaceStats {
-    /// The race of the player, zerg, protoss or terran
-    pub race: String,
-    /// The amount of replays on this map
-    pub count: u32,
-    /// The number of wins on this map
-    pub wins: u32,
-    /// The number of losses on this map
-    pub losses: u32,
-}
-
 #[derive(Deserialize, Serialize, Default)]
 #[serde(default)]
-pub struct SC2MapPicker {
-    /// A set of filters for the maps
+pub struct SC2PlayerPicker {
+    /// A set of filters for the players
     #[serde(skip)]
-    request: ListDetailsMapReq,
+    request: ListDetailsPlayerReq,
 
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
-    map_list: Option<poll_promise::Promise<ListDetailsMapRes>>,
+    player_list: Option<poll_promise::Promise<ListDetailsPlayerRes>>,
 
-    /// The selected map
+    /// The selected player
     #[serde(skip)]
-    pub selected_map: Option<MapStats>,
+    pub selected_player: Option<PlayerStats>,
 }
 
-impl SC2MapPicker {
-    async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
+impl SC2PlayerPicker {
+    async fn get_details_players(filters: ListDetailsPlayerReq) -> ListDetailsPlayerRes {
         let mut query_params: Vec<String> = vec![];
-        query_params.push(format!("title={}", encode(&filters.title)));
-        query_params.push(format!("player={}", encode(&filters.player)));
+        query_params.push(format!("name={}", encode(&filters.name)));
         query_params.push(format!("file_name={}", encode(&filters.file_name)));
         query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
         query_params.push(format!(
@@ -168,28 +168,28 @@ impl SC2MapPicker {
             "file_max_date={}",
             encode(&filters.file_max_date.to_string())
         ));
-        let query_url = format!("/api/v1/details/maps?{}", query_params.join("&"));
+        let query_url = format!("/api/v1/details/players?{}", query_params.join("&"));
         ehttp::fetch_async(ehttp::Request::get(query_url))
             .await
             .map(|response| serde_json::from_slice(&response.bytes).unwrap_or_default())
             .unwrap_or_default()
     }
 
-    /// Requests the async operation to get the details of the maps to the HTTP server.
-    pub fn req_details_maps(&mut self) {
+    /// Requests the async operation to get the details of the players to the HTTP server.
+    pub fn req_details_players(&mut self) {
         #[cfg(target_arch = "wasm32")]
         {
-            log::info!("Requesting details maps");
-            self.map_list = Some(poll_promise::Promise::spawn_local(Self::get_details_maps(
-                self.request.clone(),
-            )));
+            log::info!("Requesting details players");
+            self.player_list = Some(poll_promise::Promise::spawn_local(
+                Self::get_details_players(self.request.clone()),
+            ));
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
-            tracing::info!("Requesting details maps");
-            self.map_list = Some(poll_promise::Promise::spawn_async(Self::get_details_maps(
-                self.request.clone(),
-            )));
+            tracing::info!("Requesting details players");
+            self.player_list = Some(poll_promise::Promise::spawn_async(
+                Self::get_details_players(self.request.clone()),
+            ));
         }
     }
 }
@@ -198,16 +198,25 @@ impl SC2MapPicker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use s2protocol::details::ToonNameDetails;
 
     #[test]
-    fn test_serde_map_stats() {
-        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852, "latest_replay_sha": "whatevs",
-    top_players: ["Sazed", "Paramtamtam"]}"#;
-        let example: MapStats = serde_json::from_str(example_str).unwrap();
+    fn test_serde_player_stats() {
+        let example_str = r#"{"name":"Sazed","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400", "latest_replay_sha": "whatevs",
+    top_maps: ["Emerald City LE"]}"#;
+        let example: PlayerStats = serde_json::from_str(example_str).unwrap();
+        let example_toon: ToonNameDetails = ToonNameDetails {
+            region: 1,
+            realm: 1,
+            id: 1,
+        };
         assert_eq!(
             example,
-            MapStats {
-                title: "Emerald City LE".to_string(),
+            PlayerStats {
+                name: "Sazed".to_string(),
+                toon: example_toon,
+                clan: None,
+                race_stats: vec![],
                 count: 1852,
                 min_date: chrono::NaiveDate::from_ymd_opt(2021, 4, 12)
                     .unwrap()
@@ -218,7 +227,7 @@ mod tests {
                     .and_hms_milli_opt(15, 1, 38, 400)
                     .unwrap(),
                 latest_replay_sha: "whatevs".to_string(),
-                top_players: vec!["Sazed".to_string(), "Paramtamtam".to_string()],
+                top_maps: vec!["Emerald City LE".to_string()],
             }
         );
     }

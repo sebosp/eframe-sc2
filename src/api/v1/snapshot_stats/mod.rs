@@ -18,6 +18,8 @@ pub struct SnapshotStats {
     pub directory_size: u64,
     /// The time of modification of the details IPC file.
     pub date_modified: std::time::SystemTime,
+    /// The directorly where the snapshot is located.
+    pub directory: String,
 }
 
 impl Default for SnapshotStats {
@@ -26,6 +28,7 @@ impl Default for SnapshotStats {
             meta: crate::meta::ResponseMeta::default(),
             directory_size: 0,
             date_modified: std::time::SystemTime::UNIX_EPOCH,
+            directory: String::new(),
         }
     }
 }
