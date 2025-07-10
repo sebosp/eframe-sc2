@@ -26,7 +26,7 @@ pub struct ListDetailsMapReq {
     pub file_name: String,
     /// Part of the SHA256 hash
     #[serde(default)]
-    pub file_hash: String,
+    pub replay_id: String,
     /// Minimum bound of the file date
     #[serde(default)]
     pub file_min_date: chrono::NaiveDate,
@@ -41,7 +41,7 @@ impl Default for ListDetailsMapReq {
             title: Default::default(),
             player: Default::default(),
             file_name: Default::default(),
-            file_hash: Default::default(),
+            replay_id: Default::default(),
             file_min_date: Self::default_min_date(),
             file_max_date: Self::default_max_date(),
         }
@@ -61,9 +61,7 @@ impl ListDetailsMapReq {
             file_name: urlencoding::decode(&self.file_name)
                 .unwrap_or_default()
                 .to_string(),
-            file_hash: urlencoding::decode(&self.file_hash)
-                .unwrap_or_default()
-                .to_string(),
+            replay_id: self.replay_id,
             file_min_date: self.file_min_date,
             file_max_date: self.file_max_date,
         }
@@ -101,7 +99,7 @@ pub struct MapStats {
     /// The maximum date of the snapshot taken
     pub max_date: chrono::NaiveDateTime,
     /// The latest sha256 hash of the map
-    pub latest_replay_sha: String,
+    pub latest_replay_id: u64,
     /// The top frequency players on this map
     pub top_players: Vec<String>,
 }
@@ -159,7 +157,7 @@ impl SC2MapPicker {
         query_params.push(format!("title={}", encode(&filters.title)));
         query_params.push(format!("player={}", encode(&filters.player)));
         query_params.push(format!("file_name={}", encode(&filters.file_name)));
-        query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
+        query_params.push(format!("replay_id={}", filters.replay_id));
         query_params.push(format!(
             "file_min_date={}",
             encode(&filters.file_min_date.to_string())
@@ -201,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_serde_map_stats() {
-        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852, "latest_replay_sha": "whatevs",
+        let example_str = r#"{"title":"Emerald City LE","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400","num_players":1852, "latest_replay_id": 1,
     top_players: ["Sazed", "Paramtamtam"]}"#;
         let example: MapStats = serde_json::from_str(example_str).unwrap();
         assert_eq!(
@@ -217,7 +215,7 @@ mod tests {
                     .unwrap()
                     .and_hms_milli_opt(15, 1, 38, 400)
                     .unwrap(),
-                latest_replay_sha: "whatevs".to_string(),
+                latest_replay_id: 1,
                 top_players: vec!["Sazed".to_string(), "Paramtamtam".to_string()],
             }
         );

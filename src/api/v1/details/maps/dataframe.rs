@@ -11,13 +11,11 @@ pub async fn get_map_freq(
     state: AppState,
 ) -> Result<ListDetailsMapRes, crate::error::Error> {
     let meta = crate::meta::ResponseMetaBuilder::new();
-    let mut query = LazyFrame::scan_ipc(
+    let mut details_query = LazyFrame::scan_ipc(
         format!("{}/{}", state.source_dir, crate::DETAILS_IPC),
         Default::default(),
     )?
-    .explode(["player_list"])
-    .unnest(["player_list"])
-    .with_columns(vec![col("name")
+    .with_columns(vec![col("player_name")
         .str()
         .split(lit("<sp/>"))
         .list()
@@ -29,7 +27,7 @@ pub async fn get_map_freq(
             .and(col("ext_datetime").lt(lit(req.file_max_date))),
     );
     if !req.title.is_empty() {
-        query = query.filter(
+        details_query = details_query.filter(
             col("title")
                 .str()
                 .to_lowercase()
@@ -38,7 +36,7 @@ pub async fn get_map_freq(
         );
     }
     if !req.file_name.is_empty() {
-        query = query.filter(
+        details_query = details_query.filter(
             col("ext_fs_replay_file_name")
                 .str()
                 .to_lowercase()
@@ -46,16 +44,10 @@ pub async fn get_map_freq(
                 .contains_literal(lit(req.file_name.to_lowercase())),
         );
     }
-    if !req.file_hash.is_empty() {
-        query = query.filter(
-            col("ext_fs_replay_sha256")
-                .str()
-                .to_lowercase()
-                .str()
-                .contains_literal(lit(req.file_hash.to_lowercase())),
-        );
+    if !req.replay_id.is_empty() {
+        details_query = details_query.filter(col("ext_fs_id").eq(lit(req.replay_id)));
     }
-    let map_players_freq = query
+    let map_players_freq = details_query
         .clone()
         .group_by([col("title")])
         .agg([col("player_name")
@@ -72,7 +64,7 @@ pub async fn get_map_freq(
             },
         );
     if !req.player.is_empty() {
-        query = query.filter(
+        details_query = details_query.filter(
             col("player_name")
                 .str()
                 .to_lowercase()
@@ -80,49 +72,51 @@ pub async fn get_map_freq(
                 .contains_literal(lit(req.player.to_lowercase())),
         );
     }
-    let latest_replay_shas =
-        query
-            .clone()
-            .group_by([col("title")])
-            .agg([col("ext_fs_replay_sha256")
-                .last()
-                .alias("latest_replay_sha")]);
-    let res = query
+    let latest_replay_ids = details_query
+        .clone()
         .group_by([col("title")])
-        .agg([
-            col("title").count().alias("count"),
-            col("ext_datetime")
-                .min()
-                .dt()
-                .to_string("%Y-%m-%dT%H:%M:%S")
-                .alias("min_date"),
-            col("ext_datetime")
-                .max()
-                .dt()
-                .to_string("%Y-%m-%dT%H:%M:%S")
-                .alias("max_date"),
-        ])
-        .join(
-            latest_replay_shas,
-            &[col("title")],
-            &[col("title")],
-            JoinArgs::new(JoinType::Inner),
-        )
-        .join(
-            map_players_freq,
-            &[col("title")],
-            &[col("title")],
-            JoinArgs::new(JoinType::Inner),
-        )
-        .sort(
-            ["count"],
-            SortMultipleOptions {
-                descending: vec![true],
-                ..Default::default()
-            },
-        )
-        .limit(10000) // TODO: Unhardcode
-        .collect()?;
+        .agg([col("ext_fs_id").last().alias("latest_replay_id")]);
+    let res = tokio::task::spawn_blocking(|| {
+        details_query
+            .group_by([col("title")])
+            .agg([
+                col("title").count().alias("count"),
+                col("ext_datetime")
+                    .min()
+                    .dt()
+                    .to_string("%Y-%m-%dT%H:%M:%S")
+                    .alias("min_date"),
+                col("ext_datetime")
+                    .max()
+                    .dt()
+                    .to_string("%Y-%m-%dT%H:%M:%S")
+                    .alias("max_date"),
+            ])
+            .join(
+                latest_replay_ids,
+                &[col("title")],
+                &[col("title")],
+                JoinArgs::new(JoinType::Inner),
+            )
+            .join(
+                map_players_freq,
+                &[col("title")],
+                &[col("title")],
+                JoinArgs::new(JoinType::Inner),
+            )
+            .sort(
+                ["count"],
+                SortMultipleOptions {
+                    descending: vec![true],
+                    ..Default::default()
+                },
+            )
+            .limit(10000) // TODO: Unhardcode
+            .collect()
+    })
+    .await
+    .unwrap();
+    let res = res?;
     tracing::trace!("ListDetailsMapRes: {:?}", res);
     let data_str = crate::common::convert_df_to_json_data(&res)?;
     tracing::trace!("Data: {}", data_str);

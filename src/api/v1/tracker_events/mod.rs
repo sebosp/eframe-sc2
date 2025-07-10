@@ -20,7 +20,7 @@ pub struct UnitBornPosReq {
     /// An optional game loop of the event
     pub game_loop: Option<i64>,
     /// The file sha256 hash of the replay
-    pub file_hash: String,
+    pub replay_id: Option<u64>,
 }
 
 /// Basic query response available for filtering replay maps

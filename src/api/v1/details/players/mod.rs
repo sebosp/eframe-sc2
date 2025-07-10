@@ -1,6 +1,5 @@
 //! Player count related queries
 //!
-use s2protocol::details::ToonNameDetails;
 use urlencoding::encode;
 
 pub mod ui;
@@ -22,9 +21,9 @@ pub struct ListDetailsPlayerReq {
     /// Part of the file name
     #[serde(default)]
     pub file_name: String,
-    /// Part of the SHA256 hash
+    /// The replay id
     #[serde(default)]
-    pub file_hash: String,
+    pub replay_id: String,
     /// Minimum bound of the file date
     #[serde(default)]
     pub file_min_date: chrono::NaiveDate,
@@ -38,7 +37,7 @@ impl Default for ListDetailsPlayerReq {
         Self {
             name: Default::default(),
             file_name: Default::default(),
-            file_hash: Default::default(),
+            replay_id: Default::default(),
             file_min_date: Self::default_min_date(),
             file_max_date: Self::default_max_date(),
         }
@@ -55,9 +54,7 @@ impl ListDetailsPlayerReq {
             file_name: urlencoding::decode(&self.file_name)
                 .unwrap_or_default()
                 .to_string(),
-            file_hash: urlencoding::decode(&self.file_hash)
-                .unwrap_or_default()
-                .to_string(),
+            replay_id: self.replay_id,
             file_min_date: self.file_min_date,
             file_max_date: self.file_max_date,
         }
@@ -98,14 +95,20 @@ pub struct PlayerStats {
     /// The maximum date of the snapshot taken
     pub max_date: chrono::NaiveDateTime,
     /// The latest sha256 hash of the player
-    pub latest_replay_sha: String,
+    pub latest_replay_id: u64,
     /// The top frequency maps for this player
     pub top_maps: Vec<String>,
     /// The race stats
     #[serde(skip)]
     pub race_stats: Vec<PlayerRaceStats>,
-    /// Toon related information
-    pub toon: ToonNameDetails,
+    /// Toon region
+    pub player_toon_region: u64,
+    /// Toon program id
+    pub player_toon_program_id: u64,
+    /// Toon realm
+    pub player_toon_realm: u64,
+    /// Toon id
+    pub player_toon_id: u64,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -127,13 +130,16 @@ pub struct PlayerRaceStats {
 impl PlayerStats {
     /// A visible label for the player blizzard link
     pub fn blizzard_profile_link_title(&self) -> String {
-        format!("{}/{}/{}", self.toon.region, self.toon.realm, self.toon.id)
+        format!(
+            "{}/{}/{}",
+            self.player_toon_region, self.player_toon_realm, self.player_toon_id
+        )
     }
     /// Creates a link to access the player info on the battle.net website
     pub fn blizzard_profile_link_href(&self) -> String {
         format!(
             "https://starcraft2.blizzard.com/en-us/profile/{}/{}/{}",
-            self.toon.region, self.toon.realm, self.toon.id
+            self.player_toon_region, self.player_toon_realm, self.player_toon_id
         )
     }
 }
@@ -159,7 +165,7 @@ impl SC2PlayerPicker {
         let mut query_params: Vec<String> = vec![];
         query_params.push(format!("name={}", encode(&filters.name)));
         query_params.push(format!("file_name={}", encode(&filters.file_name)));
-        query_params.push(format!("file_hash={}", encode(&filters.file_hash)));
+        query_params.push(format!("replay_id={}", filters.replay_id));
         query_params.push(format!(
             "file_min_date={}",
             encode(&filters.file_min_date.to_string())
@@ -191,44 +197,5 @@ impl SC2PlayerPicker {
                 Self::get_details_players(self.request.clone()),
             ));
         }
-    }
-}
-
-// test module
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use s2protocol::details::ToonNameDetails;
-
-    #[test]
-    fn test_serde_player_stats() {
-        let example_str = r#"{"name":"Sazed","count":1852,"min_date":"2021-04-12T13:55:57.058","max_date":"2023-09-01T15:01:38.400", "latest_replay_sha": "whatevs",
-    top_maps: ["Emerald City LE"]}"#;
-        let example: PlayerStats = serde_json::from_str(example_str).unwrap();
-        let example_toon: ToonNameDetails = ToonNameDetails {
-            region: 1,
-            realm: 1,
-            id: 1,
-        };
-        assert_eq!(
-            example,
-            PlayerStats {
-                name: "Sazed".to_string(),
-                toon: example_toon,
-                clan: None,
-                race_stats: vec![],
-                count: 1852,
-                min_date: chrono::NaiveDate::from_ymd_opt(2021, 4, 12)
-                    .unwrap()
-                    .and_hms_milli_opt(13, 55, 57, 58)
-                    .unwrap(),
-                max_date: chrono::NaiveDate::from_ymd_opt(2023, 9, 1)
-                    .unwrap()
-                    .and_hms_milli_opt(15, 1, 38, 400)
-                    .unwrap(),
-                latest_replay_sha: "whatevs".to_string(),
-                top_maps: vec!["Emerald City LE".to_string()],
-            }
-        );
     }
 }

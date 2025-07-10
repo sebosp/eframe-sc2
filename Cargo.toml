@@ -26,20 +26,21 @@ urlencoding = "2.1.3"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-s2protocol = { version = "3.1.3", features = ["arrow"] }
+s2protocol = { path = "../s2protocol-rs/", features = ["dep_arrow"] }
 env_logger = "0.11"
 poll-promise = { version = "0.3", features = ["tokio"] }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["ws"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
-polars = { version = "0.45", features = [
+polars = { version = "0.49", features = [
     "docs-selection",
     "trigonometry",
     "regex",
     "strings",
     "top_k",
+    "dtype-full",
 ] }
-tracing = "0.1"
+tracing = { version = "0.1", features = ["max_level_debug"] }
 clap = { version = "4.4", features = ["derive"] }
 thiserror = "2.0"
 chrono = { version = "0.4.38", features = ["serde"] }
@@ -50,8 +51,10 @@ hyper-util = "0.1"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-s2protocol = { version = "3.1.3", default-features = false }
-chrono = "0.4.38"
+s2protocol = { path = "../s2protocol-rs/", default-features = false }
+chrono = { version = "0.4.38", default-features = false, features = [
+    "wasmbind",
+] }
 wasm-bindgen-futures = "0.4"
 poll-promise = { version = "0.3", features = ["web"] }
 tokio = { version = "1", features = [

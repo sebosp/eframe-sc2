@@ -2,12 +2,12 @@
 
 pub mod app;
 pub use app::SC2ReplayExplorer;
-pub mod common;
-pub use common::*;
 pub mod api;
+pub mod common;
 pub mod meta;
 
 pub const DETAILS_IPC: &str = "details.ipc";
+pub const INIT_DATA_IPC: &str = "init_data.ipc";
 pub const UNIT_BORN_IPC: &str = "unit_born.ipc";
 
 #[cfg(not(target_arch = "wasm32"))]

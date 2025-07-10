@@ -131,7 +131,7 @@ impl SC2PlayerPicker {
                     }
                     ui.label("File Hash: ");
                     if ui
-                        .text_edit_singleline(&mut self.request.file_hash)
+                        .text_edit_singleline(&mut self.request.replay_id)
                         .changed()
                     {
                         self.req_details_players();

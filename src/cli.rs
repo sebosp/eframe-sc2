@@ -47,6 +47,10 @@ pub async fn process_cli_request() -> Result<(), crate::error::Error> {
 
     crate::server::start_server(&cli).await;
 
+    tracing::info!(
+        "Starting SC2ReplayExplorer with source directory: {}",
+        cli.source_dir
+    );
     if !cli.disable_native {
         let native_options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
@@ -62,7 +66,7 @@ pub async fn process_cli_request() -> Result<(), crate::error::Error> {
     match signal::ctrl_c().await {
         Ok(()) => {}
         Err(err) => {
-            eprintln!("Unable to listen for shutdown signal: {}", err);
+            eprintln!("Unable to listen for shutdown signal: {err:?}");
             // we also shut down in case of error
         }
     }

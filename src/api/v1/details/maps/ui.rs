@@ -133,9 +133,9 @@ impl SC2MapPicker {
                     {
                         self.req_details_maps();
                     }
-                    ui.label("File Hash: ");
+                    ui.label("Snapshot Replay ID: ");
                     if ui
-                        .text_edit_singleline(&mut self.request.file_hash)
+                        .text_edit_singleline(&mut self.request.replay_id)
                         .changed()
                     {
                         self.req_details_maps();

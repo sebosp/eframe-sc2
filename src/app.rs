@@ -317,10 +317,11 @@ impl eframe::App for SC2ReplayExplorer {
                     self.replay_details = match s2protocol::parser::parse(file_contents) {
                         Ok((_input, mpq)) => {
                             self.replay_details_status_color = egui::Color32::GREEN;
-                            s2protocol::details::Details::new("TEST", &mpq, file_contents).ok()
+                            s2protocol::details::Details::new("TEST", 0u64, &mpq, file_contents)
+                                .ok()
                         }
                         Err(e) => {
-                            println!("Error parsing replay: {}", e);
+                            println!("Error parsing replay: {e}");
                             self.replay_details_status_color = egui::Color32::RED;
                             None
                         }
@@ -334,7 +335,7 @@ impl eframe::App for SC2ReplayExplorer {
                         self.replay_details_status_color,
                         format!("Status: {:?}", self.replay_details_status_color),
                     );
-                    ui.monospace(format!("{:?}", replay_details));
+                    ui.monospace(format!("{replay_details:?}"));
                 });
             }
 

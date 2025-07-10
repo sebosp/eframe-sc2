@@ -16,6 +16,7 @@ The frontend may run as native or in the browser, the eframe application interac
 ## Running the backend (axum)
 
 ```
+$ export PATH=$HOME/.cargo/bin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:$HOME/.fzf/bin
 $ CARGO_TARGET_DIR=/tmp/s2proto-backend cargo watch -x clippy -x "run -- --source-dir $HOME/git/s2protocol-rs/ipcs/ -d -v debug"
 
 ```
@@ -25,7 +26,8 @@ This serves the front end as static files, the intention is to proxy the fronten
 ## Running the frontend for development (trunk)
 
 ```
-$ CARGO_TARGET_DIR=/tmp/trunk trunk serve --address 0.0.0.0 --proxy-insecure --proxy-backend http://$hostname:3000/api/
+$ export PATH=$HOME/.cargo/bin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:$HOME/.fzf/bin
+$ CARGO_TARGET_DIR=/tmp/trunk trunk serve --address 0.0.0.0 --proxy-insecure --proxy-backend http://localhost:3000/api/
 ```
 
 This allows running requests from the frontend (wasm) to the backend over the same host:port, avoiding CORS related issues.

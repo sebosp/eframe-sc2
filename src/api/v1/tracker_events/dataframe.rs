@@ -15,14 +15,8 @@ pub async fn get_map_freq(
         format!("{}/{}", state.source_dir, crate::UNIT_BORN_IPC),
         Default::default(),
     )?;
-    if !req.file_hash.is_empty() {
-        query = query.filter(
-            col("ext_fs_replay_sha256")
-                .str()
-                .to_lowercase()
-                .str()
-                .contains_literal(lit(req.file_hash.to_lowercase())),
-        );
+    if let Some(replay_id) = req.replay_id {
+        query = query.filter(col("ext_fs_id").eq(lit(replay_id)));
     }
     if let Some(player_name) = req.player {
         query = query.filter(
@@ -53,22 +47,27 @@ pub async fn get_map_freq(
     if let Some(game_loop) = req.game_loop {
         query = query.filter(col("ext_replay_loop").eq(lit(game_loop)));
     }
-    let res = query
-        .select(&[
-            col("unit_type_name"),
-            col("x"),
-            col("y"),
-            col("ext_replay_loop"),
-        ])
-        .sort(
-            ["ext_replay_loop"],
-            SortMultipleOptions {
-                descending: vec![true],
-                ..Default::default()
-            },
-        )
-        .limit(1000)
-        .collect()?;
+    let res = tokio::task::spawn_blocking(|| {
+        query
+            .select(&[
+                col("unit_type_name"),
+                col("x"),
+                col("y"),
+                col("ext_replay_loop"),
+            ])
+            .sort(
+                ["ext_replay_loop"],
+                SortMultipleOptions {
+                    descending: vec![true],
+                    ..Default::default()
+                },
+            )
+            .limit(1000)
+            .collect()
+    })
+    .await
+    .unwrap();
+    let res = res?;
     let data_str = crate::common::convert_df_to_json_data(&res)?;
     tracing::info!("Data: {}", data_str);
     let data: Vec<UnitBornPosEvent> = serde_json::from_str(&data_str)?;
