@@ -49,7 +49,7 @@ On this workflow, it's possible to select time range further filter the current 
 
 NOTE: For each statistic it should be possible to generate a "pop-out" so that a statistic can be shown as a little piece on its own, such as game heart, something friendly for casters to show by activating an obs view.
 
-1. Select Two Players (currently only one player is selectable), assign color to each, divide display in 50% width each player column.
+1. [ ] 1v1PlayerSelection: assign color to each, divide display in 50% width each player column.
 2. Generate graph/counters in buckets grouped in all time, last 360 days, last 180 days, last 30 days.
 2.1. total games
 2.2. win/loss count and %
@@ -75,12 +75,19 @@ NOTE: For each statistic it should be possible to generate a "pop-out" so that a
 14. Future: maybe buckets of all time, last 4 months, last month.
 15. Future: Integrate rerun-cli viewer, dunno if we can bundle it here so that the binary is available when the application is ran?
 16. Future: MMR lost/won over time to each other.
+17. Watching a replay we can copy the path to a replay in the file-system, this allows removing a replay that is corrupted or that is breaking stats for whatever reason.
+17.1 If server is localhost (our own machine), we can allow to download the replay
 
 ## In Progress:
 
-1. Select Two Players:
+1. [ ] 1v1PlayerSelection:
 - Problem: Players are selected by "name", however a player may have multiple accounts and result in multiple "player_toon_id". Also other players may decide to use tha same "name" string and the stats would look broken.
 - Current patch: a player name (without the clan or ID) will be used to group them together and allow selection. If the replay dataset contains garbage, it's hard to keep it clean from the very start.
 - Future: Allow some sort of "well-known-ids" (maybe a file) where top players are known and configured/grouped and then one can use these well-knotwn-ids rather than Strings.
+1.1 [ ] 1v1PlayerSelection Allow generation of stats at this level
+1.1 [ ] MapSelection allow selection of maps where players have played vs each other and further refine stats on shown on 1.1
 - 
 
+## Broken
+
+1. Previous Player filters on both SC2PlayerPicker and SC2MapPicker were based on 1 player, now that the focus on 1v1 (i.e. two players) we need to remove a few filters. (Maybe just player_name)
