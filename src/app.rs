@@ -113,6 +113,12 @@ impl SC2ReplayExplorer {
         app_state
     }
 
+    /// Refreshes the details of the players and maps when inputs change
+    pub fn refresh_details(&mut self) {
+        self.player_picker.req_details_players();
+        self.map_picker.req_details_maps();
+    }
+
     /// Spawns the Majordomo Coordinator
     pub fn spawn_mdp_coordinator(&mut self) {
         #[cfg(target_arch = "wasm32")]
@@ -273,45 +279,67 @@ impl eframe::App for SC2ReplayExplorer {
             //ui.label("Drag-and-drop SC2Replay file onto the window!");
 
             ui.horizontal(|ui| {
-                ui.label("Select map: ");
-                ui.colored_label(
-                    self.map_picker
-                        .selected_map
-                        .as_ref()
-                        .map_or(egui::Color32::ORANGE, |_| egui::Color32::GREEN),
-                    self.map_picker
-                        .selected_map
-                        .as_ref()
-                        .map_or("Unset", |map| &map.title),
-                );
-                let map_select_label = if self.map_picker.selected_map.is_some() {
-                    "Change"
+                ui.add_space(8.0);
+                ui.label("Player 1: ");
+                if !self.player_picker.request.player_1.is_empty() {
+                    ui.colored_label(egui::Color32::GREEN, &self.player_picker.request.player_1);
+                    if ui.button("x").clicked() {
+                        self.player_picker.request.player_1 = "".to_string();
+                        self.refresh_details();
+                    }
                 } else {
-                    "Open Map Selection"
-                };
-                let player_select_label = if self.player_picker.selected_player.is_some() {
-                    "Change"
-                } else {
-                    "Open Player Selection"
-                };
-                if ui.button(map_select_label).clicked() {
-                    self.map_picker.selected_map = None;
-                    self.is_open_map_selection = true;
-                }
-                if ui.button(player_select_label).clicked() {
-                    self.player_picker.selected_player = None;
+                    ui.colored_label(egui::Color32::ORANGE, "Unset");
                     self.is_open_player_selection = true;
                 }
-
-                let mut is_open_map_selection = self.is_open_map_selection;
-                self.map_picker
-                    .update(ctx, &mut is_open_map_selection, self.tx.clone());
-                self.is_open_map_selection = self.map_picker.selected_map.is_none();
-                let mut is_open_player_selection = self.is_open_player_selection;
-                self.player_picker
-                    .update(ctx, &mut is_open_player_selection, self.tx.clone());
-                self.is_open_player_selection = self.player_picker.selected_player.is_none();
+                ui.add_space(8.0);
+                ui.label("Player 2: ");
+                if !self.player_picker.request.player_2.is_empty() {
+                    ui.colored_label(egui::Color32::GREEN, &self.player_picker.request.player_2);
+                    if ui.button("x").clicked() {
+                        self.player_picker.request.player_2 = "".to_string();
+                        self.is_open_player_selection = true;
+                        self.refresh_details();
+                    }
+                } else {
+                    ui.colored_label(egui::Color32::ORANGE, "Unset");
+                    self.is_open_player_selection = true;
+                }
+                self.map_picker.request.player_1 = self.player_picker.request.player_1.clone();
+                self.map_picker.request.player_2 = self.player_picker.request.player_2.clone();
+                if !self.player_picker.request.player_1.is_empty()
+                    && !self.player_picker.request.player_2.is_empty()
+                {
+                    ui.label("Map: ");
+                    ui.colored_label(
+                        self.map_picker
+                            .selected_map
+                            .as_ref()
+                            .map_or(egui::Color32::ORANGE, |_| egui::Color32::GREEN),
+                        self.map_picker
+                            .selected_map
+                            .as_ref()
+                            .map_or("Unset", |map| &map.title),
+                    );
+                    if !self.is_open_map_selection {
+                        if self.map_picker.selected_map.is_some() {
+                            if ui.button("x").clicked() {
+                                self.map_picker.selected_map = None;
+                            }
+                        } else if ui.button("Filter Map").clicked() {
+                            self.refresh_details();
+                            self.is_open_map_selection = true;
+                        }
+                    }
+                    let mut is_open_map_selection = self.is_open_map_selection;
+                    self.map_picker
+                        .update(ctx, &mut is_open_map_selection, self.tx.clone());
+                }
             });
+            let mut is_open_player_selection = self.is_open_player_selection;
+            self.player_picker
+                .update(ctx, &mut is_open_player_selection, self.tx.clone());
+            self.is_open_player_selection = self.player_picker.request.player_1.is_empty()
+                || self.player_picker.request.player_2.is_empty();
             if let Some(file_async) = &self.file_request_future {
                 if let Some(Some(file_contents)) = file_async.ready() {
                     self.replay_details = match s2protocol::parser::parse(file_contents) {

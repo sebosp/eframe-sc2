@@ -76,3 +76,11 @@ NOTE: For each statistic it should be possible to generate a "pop-out" so that a
 15. Future: Integrate rerun-cli viewer, dunno if we can bundle it here so that the binary is available when the application is ran?
 16. Future: MMR lost/won over time to each other.
 
+## In Progress:
+
+1. Select Two Players:
+- Problem: Players are selected by "name", however a player may have multiple accounts and result in multiple "player_toon_id". Also other players may decide to use tha same "name" string and the stats would look broken.
+- Current patch: a player name (without the clan or ID) will be used to group them together and allow selection. If the replay dataset contains garbage, it's hard to keep it clean from the very start.
+- Future: Allow some sort of "well-known-ids" (maybe a file) where top players are known and configured/grouped and then one can use these well-knotwn-ids rather than Strings.
+- 
+

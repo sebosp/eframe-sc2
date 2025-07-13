@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 pub struct ListDetailsPlayerReq {
     /// A player that must have played in the game
     #[serde(default)]
-    pub name: String,
+    pub player_name_like: String,
     /// Part of the file name
     #[serde(default)]
     pub file_name: String,
@@ -30,16 +30,28 @@ pub struct ListDetailsPlayerReq {
     /// Max bound of the file date
     #[serde(default)]
     pub file_max_date: chrono::NaiveDate,
+    /// The map that the player played on
+    #[serde(default)]
+    pub map_title: String,
+    /// A player that must have played a game
+    #[serde(default)]
+    pub player_1: String,
+    /// A player that must have played a game
+    #[serde(default)]
+    pub player_2: String,
 }
 
 impl Default for ListDetailsPlayerReq {
     fn default() -> Self {
         Self {
-            name: Default::default(),
+            player_name_like: Default::default(),
             file_name: Default::default(),
             replay_id: Default::default(),
             file_min_date: Self::default_min_date(),
             file_max_date: Self::default_max_date(),
+            map_title: Default::default(),
+            player_1: Default::default(),
+            player_2: Default::default(),
         }
     }
 }
@@ -48,7 +60,7 @@ impl ListDetailsPlayerReq {
     /// Returns a new instance of the request with the unescaped values
     pub fn from_escaped(self) -> Self {
         Self {
-            name: urlencoding::decode(&self.name)
+            player_name_like: urlencoding::decode(&self.player_name_like)
                 .unwrap_or_default()
                 .to_string(),
             file_name: urlencoding::decode(&self.file_name)
@@ -57,6 +69,15 @@ impl ListDetailsPlayerReq {
             replay_id: self.replay_id,
             file_min_date: self.file_min_date,
             file_max_date: self.file_max_date,
+            map_title: urlencoding::decode(&self.map_title)
+                .unwrap_or_default()
+                .to_string(),
+            player_1: urlencoding::decode(&self.player_1)
+                .unwrap_or_default()
+                .to_string(),
+            player_2: urlencoding::decode(&self.player_2)
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 
@@ -149,21 +170,17 @@ impl PlayerStats {
 pub struct SC2PlayerPicker {
     /// A set of filters for the players
     #[serde(skip)]
-    request: ListDetailsPlayerReq,
+    pub request: ListDetailsPlayerReq,
 
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
     player_list: Option<poll_promise::Promise<ListDetailsPlayerRes>>,
-
-    /// The selected player
-    #[serde(skip)]
-    pub selected_player: Option<PlayerStats>,
 }
 
 impl SC2PlayerPicker {
     async fn get_details_players(filters: ListDetailsPlayerReq) -> ListDetailsPlayerRes {
         let mut query_params: Vec<String> = vec![];
-        query_params.push(format!("name={}", encode(&filters.name)));
+        query_params.push(format!("name={}", encode(&filters.player_name_like)));
         query_params.push(format!("file_name={}", encode(&filters.file_name)));
         query_params.push(format!("replay_id={}", filters.replay_id));
         query_params.push(format!(
@@ -174,6 +191,9 @@ impl SC2PlayerPicker {
             "file_max_date={}",
             encode(&filters.file_max_date.to_string())
         ));
+        query_params.push(format!("player_1={}", encode(&filters.player_1)));
+        //  We'll send ove player_2 but in reality it is not used.
+        query_params.push(format!("player_2={}", encode(&filters.player_2)));
         let query_url = format!("/api/v1/details/players?{}", query_params.join("&"));
         ehttp::fetch_async(ehttp::Request::get(query_url))
             .await

@@ -7,6 +7,7 @@ use super::{ListDetailsPlayerReq, SC2PlayerPicker};
 use eframe::egui;
 use egui::Ui;
 use egui::Widget;
+use egui::{Color32, RichText};
 use egui_extras::{Column, DatePickerButton, TableBuilder};
 
 impl SC2PlayerPicker {
@@ -32,15 +33,12 @@ impl SC2PlayerPicker {
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Column::auto())
             .column(Column::initial(100.0).at_least(40.0).clip(true))
-            .column(Column::initial(80.0).at_least(40.0).clip(true))
+            .column(Column::auto())
             .column(Column::auto())
             .column(Column::remainder())
             .min_scrolled_height(0.0);
-        let selected_player_name: String = if let Some(player) = &self.selected_player {
-            player.name.clone()
-        } else {
-            "".to_string()
-        };
+        let player_1 = self.request.player_1.clone();
+        let player_2 = self.request.player_2.clone();
 
         table
             .header(20.0, |mut header| {
@@ -67,10 +65,14 @@ impl SC2PlayerPicker {
                     body.row(row_height, |mut row| {
                         let map_ratio = player.count as f32 / max_games_on_player as f32;
                         row.col(|ui| {
-                            if selected_player_name == player.name {
+                            if player_1 == player.name || player_2 == player.name {
                                 ui.strong(idx.to_string());
                             } else if ui.button(idx.to_string()).clicked() {
-                                self.selected_player = Some(player.clone());
+                                if self.request.player_1.is_empty() {
+                                    self.request.player_1 = player.name.clone();
+                                } else {
+                                    self.request.player_2 = player.name.clone();
+                                }
                                 ui.label(idx.to_string());
                             }
                         });
@@ -82,10 +84,18 @@ impl SC2PlayerPicker {
                             ui.add(bar);
                         });
                         row.col(|ui| {
-                            if selected_player_name == player.name {
+                            if player_1 == player.name || player_2 == player.name {
                                 ui.strong(&player.name);
-                            } else if ui.button(&player.name).clicked() {
-                                self.selected_player = Some(player.clone());
+                            } else if ui
+                                .button(RichText::new(&player.name).color(Color32::GREEN))
+                                .clicked()
+                            {
+                                if self.request.player_1.is_empty() {
+                                    self.request.player_1 = player.name.clone();
+                                } else {
+                                    self.request.player_2 = player.name.clone();
+                                }
+                                self.req_details_players();
                                 ui.label(&player.name);
                             }
                         });
@@ -119,7 +129,10 @@ impl SC2PlayerPicker {
                 ui.horizontal(|ui| {
                     ui.label("Filters > ");
                     ui.label("Player: ");
-                    if ui.text_edit_singleline(&mut self.request.name).changed() {
+                    if ui
+                        .text_edit_singleline(&mut self.request.player_name_like)
+                        .changed()
+                    {
                         self.req_details_players();
                     }
                     ui.label("File Path: ");
@@ -129,7 +142,7 @@ impl SC2PlayerPicker {
                     {
                         self.req_details_players();
                     }
-                    ui.label("File Hash: ");
+                    ui.label("Snapshot Replay ID: ");
                     if ui
                         .text_edit_singleline(&mut self.request.replay_id)
                         .changed()

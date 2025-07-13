@@ -20,7 +20,10 @@ pub struct ListDetailsMapReq {
     pub title: String,
     /// A player that must have played in the game
     #[serde(default)]
-    pub player: String,
+    pub player_1: String,
+    /// A player that must have played in the game
+    #[serde(default)]
+    pub player_2: String,
     /// Part of the file name
     #[serde(default)]
     pub file_name: String,
@@ -39,7 +42,8 @@ impl Default for ListDetailsMapReq {
     fn default() -> Self {
         Self {
             title: Default::default(),
-            player: Default::default(),
+            player_1: Default::default(),
+            player_2: Default::default(),
             file_name: Default::default(),
             replay_id: Default::default(),
             file_min_date: Self::default_min_date(),
@@ -55,7 +59,10 @@ impl ListDetailsMapReq {
             title: urlencoding::decode(&self.title)
                 .unwrap_or_default()
                 .to_string(),
-            player: urlencoding::decode(&self.player)
+            player_1: urlencoding::decode(&self.player_1)
+                .unwrap_or_default()
+                .to_string(),
+            player_2: urlencoding::decode(&self.player_2)
                 .unwrap_or_default()
                 .to_string(),
             file_name: urlencoding::decode(&self.file_name)
@@ -140,7 +147,7 @@ pub struct RaceStats {
 pub struct SC2MapPicker {
     /// A set of filters for the maps
     #[serde(skip)]
-    request: ListDetailsMapReq,
+    pub request: ListDetailsMapReq,
 
     /// Contains the metadata related to the backend snapshot.
     #[serde(skip)]
@@ -155,7 +162,8 @@ impl SC2MapPicker {
     async fn get_details_maps(filters: ListDetailsMapReq) -> ListDetailsMapRes {
         let mut query_params: Vec<String> = vec![];
         query_params.push(format!("title={}", encode(&filters.title)));
-        query_params.push(format!("player={}", encode(&filters.player)));
+        query_params.push(format!("player_1={}", encode(&filters.player_1)));
+        query_params.push(format!("player_2={}", encode(&filters.player_2)));
         query_params.push(format!("file_name={}", encode(&filters.file_name)));
         query_params.push(format!("replay_id={}", filters.replay_id));
         query_params.push(format!(

@@ -123,7 +123,10 @@ impl SC2MapPicker {
                         self.req_details_maps();
                     }
                     ui.label("Player: ");
-                    if ui.text_edit_singleline(&mut self.request.player).changed() {
+                    if ui
+                        .text_edit_singleline(&mut self.request.player_1)
+                        .changed()
+                    {
                         self.req_details_maps();
                     }
                     ui.label("File Path: ");

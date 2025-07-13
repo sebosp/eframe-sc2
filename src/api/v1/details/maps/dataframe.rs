@@ -47,6 +47,8 @@ pub async fn get_map_freq(
     if !req.replay_id.is_empty() {
         details_query = details_query.filter(col("ext_fs_id").eq(lit(req.replay_id)));
     }
+    let mut player1_match_query = details_query.clone();
+    let mut player2_match_query = details_query.clone();
     let map_players_freq = details_query
         .clone()
         .group_by([col("title")])
@@ -63,21 +65,47 @@ pub async fn get_map_freq(
                 ..Default::default()
             },
         );
-    if !req.player.is_empty() {
+    if !req.player_1.is_empty() && req.player_2.is_empty() {
         details_query = details_query.filter(
             col("player_name")
                 .str()
                 .to_lowercase()
                 .str()
-                .contains_literal(lit(req.player.to_lowercase())),
+                .contains_literal(lit(req.player_1.to_lowercase())),
         );
+    } else if !req.player_1.is_empty() && !req.player_2.is_empty() {
+        // If both players are specified, we need to create views
+        // for each player and then join them later.
+        player1_match_query =
+            player1_match_query.filter(col("player_name").eq(lit(req.player_1.to_lowercase())));
+        player2_match_query =
+            player2_match_query.filter(col("player_name").eq(lit(req.player_2.to_lowercase())));
     }
     let latest_replay_ids = details_query
         .clone()
         .group_by([col("title")])
         .agg([col("ext_fs_id").last().alias("latest_replay_id")]);
-    let res = tokio::task::spawn_blocking(|| {
-        details_query
+    let res = tokio::task::spawn_blocking(move || {
+        let mut query_plan = details_query;
+        if !req.player_1.is_empty() && !req.player_2.is_empty() {
+            player1_match_query = player1_match_query.select(&[col("ext_fs_id")]);
+            player2_match_query = player2_match_query.select(&[col("ext_fs_id")]);
+            player1_match_query = player1_match_query.select(&[col("ext_fs_id")]);
+            query_plan = query_plan
+                .join(
+                    player1_match_query,
+                    &[col("ext_fs_id")],
+                    &[col("ext_fs_id")],
+                    JoinArgs::new(JoinType::Inner),
+                )
+                .join(
+                    player2_match_query,
+                    &[col("ext_fs_id")],
+                    &[col("ext_fs_id")],
+                    JoinArgs::new(JoinType::Inner),
+                );
+        }
+        query_plan
             .group_by([col("title")])
             .agg([
                 col("title").count().alias("count"),
