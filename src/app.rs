@@ -1,6 +1,7 @@
 //! Main app
 
 use crate::api::v1::details::maps::SC2MapPicker;
+use crate::api::v1::details::players::MatchStats;
 use crate::api::v1::details::players::SC2PlayerPicker;
 use crate::api::v1::snapshot_stats::SnapshotStats;
 use crate::api::v1::tracker_events::UnitBornPosRes;
@@ -23,13 +24,13 @@ pub struct SC2ReplayExplorer {
     #[serde(skip)]
     player_picker: SC2PlayerPicker,
 
-    /// The Map selection UI
+    /// A map of units born positions
     #[serde(skip)]
     units_born: UnitBornPosRes,
 
-    /// A filter in the future
+    /// The Player selection UI
     #[serde(skip)]
-    value: f32,
+    player_match_history_stats: MatchStats,
 
     /// A list of files drag and dropped.
     dropped_files: Vec<egui::DroppedFile>,
@@ -82,7 +83,6 @@ impl Default for SC2ReplayExplorer {
             map_picker: Default::default(),
             player_picker: Default::default(),
             units_born: Default::default(),
-            value: 2.7,
             dropped_files: Default::default(),
             picked_path: None,
             file_request_future: None,
@@ -374,15 +374,25 @@ impl eframe::App for SC2ReplayExplorer {
                 });
             }
 
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
-
             ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("Matching Replays: ");
+            });
+            ui.horizontal(|ui| {
+                if !self.player_picker.request.player_1.is_empty()
+                    && !self.player_picker.request.player_2.is_empty()
+                {
+                    if let Some(snapshot_stats) = &self.snapshot_stats {
+                        ui.label(format!("Total files: {}", snapshot_stats.num_files));
+                        ui.label(format!("Total maps: {}", snapshot_stats.num_maps));
+                        ui.label(format!("Total players: {}", snapshot_stats.num_players));
+                    } else {
+                        ui.label("Loading stats...");
+                    }
+                } else {
+                    ui.label("Please select players to filter the replays.");
+                }
             });
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -409,16 +419,4 @@ fn references_footer(ui: &mut egui::Ui) {
         );
         ui.label(".");
     });
-}
-
-/// Converts an input value into unit prefixed value, for example, 1000 to 1KB
-fn prefixed_unit(value: u64) -> String {
-    let prefixes = ["", "K", "M", "G", "T", "P", "E"];
-    let mut prefix_index = 0;
-    let mut value = value as f64;
-    while value > 1024.0 && prefix_index < prefixes.len() {
-        value /= 1024.0;
-        prefix_index += 1;
-    }
-    format!("{:0.2} {}Bs", value, prefixes[prefix_index])
 }
