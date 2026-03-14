@@ -2,6 +2,7 @@
 //!
 use urlencoding::encode;
 
+pub mod match_stats;
 pub mod ui;
 
 #[cfg(not(target_arch = "wasm32"))]

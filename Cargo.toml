@@ -6,8 +6,8 @@ edition = "2021"
 rust-version = "1.87"
 
 [dependencies]
-egui = "0.31"
-eframe = { version = "0.31", default-features = false, features = [
+egui = "0.33"
+eframe = { version = "0.33", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -16,23 +16,23 @@ eframe = { version = "0.31", default-features = false, features = [
     "x11",           # To support older Linux distributions (restores one of the default features)
 ] }
 log = "0.4"
-rfd = "0.15"
-egui_plot = "0.32"
-egui_extras = { version = "0.31", features = ["datepicker", "serde"] }
+rfd = "0.17"
+egui_plot = "0.34"
+egui_extras = { version = "0.33", features = ["datepicker", "serde"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.91"
-ehttp = { version = "0.5", features = ["native-async"] }
-urlencoding = "2.1.3"
+serde_json = "1.0"
+ehttp = { version = "0.6", features = ["native-async"] }
+urlencoding = "2.1"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-s2protocol = { version = "3.2.1", features = ["dep_arrow"] }
+s2protocol = { version = "3.4", features = ["dep_arrow"] }
 env_logger = "0.11"
 poll-promise = { version = "0.3", features = ["tokio"] }
 tokio = { version = "1", features = ["full"] }
-axum = { version = "0.7", features = ["ws"] }
-tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
-polars = { version = "0.49", features = [
+axum = { version = "0.8", features = ["ws"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+polars = { version = "0.52", features = [
     "full",
     "trigonometry",
     "regex",
@@ -41,20 +41,18 @@ polars = { version = "0.49", features = [
     "dtype-full",
 ] }
 tracing = { version = "0.1", features = ["max_level_debug"] }
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
 thiserror = "2.0"
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 tower = { version = "0.5", features = ["full"] }
 tower-http = { version = "0.6", features = ["fs", "trace"] }
-hyper = { version = "1.5", features = ["full"] }
+hyper = { version = "1.8", features = ["full"] }
 hyper-util = "0.1"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-s2protocol = { version = "3.2.1", default-features = false }
-chrono = { version = "0.4.38", default-features = false, features = [
-    "wasmbind",
-] }
+s2protocol = { version = "3.4", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["wasmbind"] }
 wasm-bindgen-futures = "0.4"
 poll-promise = { version = "0.3", features = ["web"] }
 tokio = { version = "1", features = [
@@ -64,7 +62,7 @@ tokio = { version = "1", features = [
     "rt",
     "time",
 ] }
-web-sys = "0.3.70" # to access the DOM
+web-sys = "0.3" # to access the DOM
 
 
 [profile.release]
