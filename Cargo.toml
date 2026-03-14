@@ -16,8 +16,8 @@ eframe = { version = "0.33", default-features = false, features = [
     "x11",           # To support older Linux distributions (restores one of the default features)
 ] }
 log = "0.4"
-rfd = "0.16"
-egui_plot = "0.33"
+rfd = "0.17"
+egui_plot = "0.34"
 egui_extras = { version = "0.33", features = ["datepicker", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
