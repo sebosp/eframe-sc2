@@ -6,8 +6,8 @@ edition = "2021"
 rust-version = "1.87"
 
 [dependencies]
-egui = "0.33"
-eframe = { version = "0.33", default-features = false, features = [
+egui = "0.36"
+eframe = { version = "0.36", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -17,11 +17,11 @@ eframe = { version = "0.33", default-features = false, features = [
 ] }
 log = "0.4"
 rfd = "0.17"
-egui_plot = "0.34"
-egui_extras = { version = "0.33", features = ["datepicker", "serde"] }
+egui_plot = "0.37"
+egui_extras = { version = "0.36", features = ["datepicker", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
-ehttp = { version = "0.6", features = ["native-async"] }
+ehttp = { version = "0.7", features = ["native-async"] }
 urlencoding = "2.1"
 
 # native:
@@ -32,7 +32,7 @@ poll-promise = { version = "0.3", features = ["tokio"] }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["ws"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-polars = { version = "0.52", features = [
+polars = { version = "0.55", features = [
     "full",
     "trigonometry",
     "regex",
@@ -45,7 +45,7 @@ clap = { version = "4.5", features = ["derive"] }
 thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
 tower = { version = "0.5", features = ["full"] }
-tower-http = { version = "0.6", features = ["fs", "trace"] }
+tower-http = { version = "0.7", features = ["fs", "trace"] }
 hyper = { version = "1.8", features = ["full"] }
 hyper-util = "0.1"
 
